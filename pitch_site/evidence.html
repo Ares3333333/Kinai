@@ -1,0 +1,160 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI - Evidence</title>
+    <meta name="description" content="Kinaesthetic AI evidence page: signal to alert to recovery proof, validation labels, privacy passport, and investor package export. Raw video is never stored." />
+    <meta property="og:title" content="Kinaesthetic AI - Evidence and recovery proof" />
+    <meta property="og:description" content="Investor-ready proof package: derived body-state signals, labels, recovery evidence, and privacy passport. No raw video or audio." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/assets/kai-ai-scan-player.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/product.css" />
+  </head>
+  <body class="product-body evidence-body">
+    <header class="product-topbar">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="product-nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="product-shell evidence-shell">
+      <section class="product-hero evidence-hero">
+        <div>
+          <span class="section-kicker">Investor evidence</span>
+          <h1>Evidence: signal → alert → recovery.</h1>
+          <p>
+            Система видит body-state signals, дает короткую команду, измеряет восстановление
+            и собирает labels для валидации. Raw video/audio не сохраняются.
+          </p>
+          <div class="product-badges">
+            <span class="product-badge ok" id="evidenceStatus">loading</span>
+            <span class="product-badge" id="runtimeMode">OFFLINE</span>
+            <span class="product-badge" id="storageStatus">storage: local</span>
+            <span class="product-badge">100+ tester base</span>
+            <span class="product-badge">150-label validation goal</span>
+          </div>
+        </div>
+        <div class="product-actions">
+          <a class="product-button primary" href="/demo">Показать investor demo</a>
+          <a class="product-button" href="/play">Запустить live camera</a>
+          <button id="exportPitchPackage" type="button" aria-describedby="exportStatus">Export package</button>
+          <a class="product-button" href="mailto:start@sharprod.com?subject=Kinaesthetic%20AI%20pilot%20%2F%20investor%20intro">Contact founder</a>
+        </div>
+      </section>
+
+      <p class="play-mode-hint" id="modeHint">OFFLINE: нет live-сигнала. Для реального proof запустите /play.</p>
+
+      <section class="evidence-onepager">
+        <article class="evidence-card hero-proof">
+          <span>Latest proof</span>
+          <strong id="proofHeadline">Пока недостаточно live-данных</strong>
+          <p id="proofDetails">Запустите /play или /demo, чтобы собрать recovery proof.</p>
+        </article>
+
+        <article class="evidence-card">
+          <span>What we measure</span>
+          <ul class="evidence-list">
+            <li>Jaw tension, shoulder elevation, posture collapse.</li>
+            <li>Tilt risk, readiness, recovery delta.</li>
+            <li>Tester labels: felt tilt, helped, false alert.</li>
+          </ul>
+        </article>
+
+        <article class="evidence-card">
+          <span>What we never store</span>
+          <ul class="evidence-list">
+            <li>Raw video.</li>
+            <li>Raw audio.</li>
+            <li>Camera frames.</li>
+          </ul>
+        </article>
+
+        <article class="evidence-card">
+          <span>Validation</span>
+          <strong id="labelCount">0/150 labels</strong>
+          <p id="labelDetails">Goal: prove early tension detection and command usefulness with testers.</p>
+        </article>
+      </section>
+
+      <section class="evidence-onepager compact">
+        <article class="evidence-card hero-proof">
+          <span>Beta database</span>
+          <strong id="testerBaseCount">0/100 testers</strong>
+          <p id="testerBaseDetails">Every consenting player session saves derived samples, labels, and proof metadata. Raw media is excluded.</p>
+        </article>
+        <article class="evidence-card">
+          <span>Auto-save pipeline</span>
+          <strong id="autoSaveMode">Local JSONL</strong>
+          <p id="autoSaveDetails">Browser CV -> /api/signals -> local storage -> optional Supabase mirror.</p>
+        </article>
+        <article class="evidence-card">
+          <span>Stored per check</span>
+          <ul class="evidence-list">
+            <li>Tilt risk, readiness, recovery.</li>
+            <li>Jaw/shoulder/posture signals.</li>
+            <li>Session id, tester id, game, timestamp.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="evidence-layout wide">
+        <article class="evidence-card">
+          <span>Live timeline</span>
+          <svg id="sessionChart" viewBox="0 0 900 320"></svg>
+          <div class="chart-legend" aria-label="Timeline legend">
+            <b class="legend-tilt">Tilt risk</b>
+            <b class="legend-ready">Readiness</b>
+            <b class="legend-recovery">Recovery</b>
+          </div>
+          <p id="chartDetails">No timeline yet.</p>
+        </article>
+      </section>
+
+      <section class="evidence-onepager compact">
+        <article class="evidence-card">
+          <span>Cloud coach health</span>
+          <strong id="coachProvider">fallback</strong>
+          <p id="coachDetails">Critical alerts work locally even when the LLM is unavailable.</p>
+        </article>
+        <article class="evidence-card">
+          <span>Data moat</span>
+          <strong id="sampleCount">0</strong>
+          <p id="sampleDetails">Derived samples and labels accumulate without storing raw media.</p>
+        </article>
+        <article class="evidence-card">
+          <span>Privacy passport</span>
+          <p id="exportStatus">Ready to export investor package. No raw media included.</p>
+        </article>
+      </section>
+
+      <section class="evidence-card export-success" id="exportSuccess" hidden>
+        <span>Package ready</span>
+        <strong>Investor proof JSON скачан.</strong>
+        <p id="exportSuccessDetails">Внутри: demo/live links, proof, validation summary, privacy passport. Raw video/audio/camera frames не включены.</p>
+      </section>
+
+      <section class="evidence-card contact-proof">
+        <div>
+          <span>Investor next step</span>
+          <strong>Ссылка уже готова для публичного просмотра.</strong>
+          <p>Если backend не подключён, сайт честно показывает public demo mode. Live camera остаётся локальной в браузере; proof package можно скачать прямо здесь.</p>
+        </div>
+        <div class="demo-action-row">
+          <button class="product-button primary" id="downloadLocalEvidence" type="button">Download proof JSON</button>
+          <a class="product-button" href="/demo">Watch demo</a>
+          <a class="product-button" href="mailto:start@sharprod.com?subject=Kinaesthetic%20AI%20intro">Contact founder</a>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/evidence.js"></script>
+  </body>
+</html>
+

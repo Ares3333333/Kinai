@@ -1,0 +1,57 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI — validation mode</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/product.css" />
+  </head>
+  <body class="product-body">
+    <header class="product-topbar">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="product-nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+    <main class="product-shell">
+      <section class="product-hero">
+        <div>
+          <h1>Validation Mode</h1>
+          <p>10-минутный протокол для тестеров: система собирает derived signals, а тестер ставит labels через T/H/F.</p>
+          <div class="product-badges">
+            <span class="product-badge ok" id="validationStatus">готов</span>
+            <span class="product-badge" id="validationProgress">0/150 labels</span>
+          </div>
+        </div>
+        <div class="product-actions">
+          <a class="product-button primary" href="/play">Начать 10-минутный тест</a>
+          <a class="product-button" href="/evidence">Посмотреть evidence</a>
+        </div>
+      </section>
+      <section class="evidence-layout">
+        <article class="evidence-card">
+          <span>Инструкция</span>
+          <ul class="evidence-list">
+            <li>Откройте режим игрока.</li>
+            <li>Разрешите камеру и сядьте так, чтобы были видны лицо и плечи.</li>
+            <li>Играйте 10 минут.</li>
+            <li>Нажимайте T, когда чувствуете тильт или напряжение.</li>
+            <li>Нажимайте H, если команда помогла.</li>
+            <li>Нажимайте F, если это false alert.</li>
+          </ul>
+        </article>
+        <article class="evidence-card">
+          <span>Текущий прогресс</span>
+          <strong id="validationHeadline">—</strong>
+          <p id="validationDetails">Загрузка...</p>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="/validation.js"></script>
+  </body>
+</html>
+

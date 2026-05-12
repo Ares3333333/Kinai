@@ -1,0 +1,2 @@
+# Public product site/API uses only the Python standard library.
+# Browser CV runs in JavaScript through MediaPipe Tasks Vision.

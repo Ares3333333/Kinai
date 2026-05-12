@@ -1,0 +1,117 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI - Investor demo</title>
+    <meta name="description" content="Watch a 28-second scripted investor demo of Kinaesthetic AI: body-state signal, coach alert, recovery proof, and privacy-first data collection." />
+    <meta property="og:title" content="Kinaesthetic AI - 28-second investor demo" />
+    <meta property="og:description" content="Signal -> alert -> recovery proof. A concise demo of the anti-tilt coach for gamers, with no raw video stored." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/assets/kai-ai-scan-player.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/product.css" />
+  </head>
+  <body class="product-body investor-demo-body">
+    <header class="product-topbar">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="product-nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="product-shell demo-shell">
+      <section class="product-hero demo-hero">
+        <div>
+          <span class="section-kicker">Investor demo</span>
+          <h1>28 секунд: сигнал, alert, recovery proof.</h1>
+          <p>
+            Короткий scripted demo для инвестора: видно, что система считывает раннее напряжение,
+            дает одну coach-команду и показывает восстановление. Для реальной камеры используйте /play.
+          </p>
+          <div class="product-badges">
+            <span class="product-badge" data-state="demo">DEMO</span>
+            <span class="product-badge ok">no raw video</span>
+            <span class="product-badge">performance coaching</span>
+          </div>
+        </div>
+        <div class="product-actions">
+          <button class="primary" id="startInvestorDemo" type="button" aria-describedby="demoClock">Показать demo</button>
+          <button id="resetInvestorDemo" type="button">Сбросить</button>
+          <a class="product-button" href="/play">Открыть live camera</a>
+          <a class="product-button" href="/evidence">Evidence</a>
+        </div>
+      </section>
+
+      <section class="investor-demo-grid">
+        <article class="demo-stage product-panel">
+          <div class="demo-stage-header">
+            <span id="demoPhaseLabel">Baseline</span>
+            <strong id="demoClock">00:00 / 00:28</strong>
+          </div>
+          <div class="demo-progress-track" aria-hidden="true"><b id="demoProgressBar"></b></div>
+          <div class="demo-body-frame">
+            <div class="ai-scan-portrait demo-scan-portrait">
+              <div class="ai-person">
+                <img class="ai-scan-photo" src="/assets/kai-ai-scan-player.png" alt="AI body-state scan of an esports player" />
+              </div>
+              <div class="scan-readout"><span id="demoSignalOne">Лицо: нейтрально</span><span id="demoSignalTwo">Плечи: свободно</span></div>
+            </div>
+            <div class="demo-scanline"></div>
+            <div class="demo-film-caption">
+              <span id="demoSceneTag">01 / CALIBRATION</span>
+              <strong id="demoSceneTitle">Система калибрует игрока</strong>
+              <p id="demoSceneCopy">Первые секунды показывают нейтральную посадку: лицо спокойно, плечи ровные, сигнал чистый.</p>
+            </div>
+            <div class="demo-signal-chip" id="demoSignalThree">Сигнал: чистый</div>
+          </div>
+          <ol class="demo-timeline" aria-label="Investor demo timeline">
+            <li class="is-active" data-step="baseline"><span>1</span><strong>Baseline</strong><small>Игрок спокоен</small></li>
+            <li data-step="rising"><span>2</span><strong>Rising tilt</strong><small>Челюсть и плечи напрягаются</small></li>
+            <li data-step="alert"><span>3</span><strong>Coach alert</strong><small>Одна короткая команда</small></li>
+            <li data-step="recovery"><span>4</span><strong>Recovery proof</strong><small>Риск падает</small></li>
+          </ol>
+        </article>
+
+        <aside class="demo-proof product-panel">
+          <article class="metric-card tilt">
+            <span>Risk</span>
+            <strong id="demoTilt">24</strong>
+            <i><b id="demoTiltBar" style="width:24%"></b></i>
+          </article>
+          <article class="metric-card">
+            <span>Readiness</span>
+            <strong id="demoReadiness">82</strong>
+          </article>
+          <article class="command-card">
+            <span>Coach command</span>
+            <strong id="demoCommand">Система смотрит baseline.</strong>
+            <p id="demoCommandMeta">Это scripted demo. Для реальной камеры используйте /play.</p>
+          </article>
+          <article class="proof-product proof-inline">
+            <span>Recovery proof</span>
+            <h2 id="demoProof">Proof появится после recovery</h2>
+            <p id="demoProofDetails">Собираем baseline: posture, face tension, shoulders.</p>
+          </article>
+          <div class="demo-next-actions" id="demoNextActions" hidden>
+            <span>Следующий шаг</span>
+            <strong>Готово для инвестора: demo показало signal → alert → recovery.</strong>
+            <div class="demo-action-row">
+              <a class="product-button primary" href="/evidence">Открыть investor evidence</a>
+              <a class="product-button" href="/play">Проверить live camera</a>
+              <a class="product-button" href="mailto:start@sharprod.com?subject=Kinaesthetic%20AI%20intro">Contact founder</a>
+              <a class="product-button" href="/privacy">Privacy proof</a>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module" src="/investor_demo.js"></script>
+  </body>
+</html>
+

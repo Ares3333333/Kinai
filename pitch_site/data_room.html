@@ -1,0 +1,43 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI · data room</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="content-page data-room-page">
+      <section class="content-hero">
+        <p class="section-kicker">Investor data room</p>
+        <h1>Что реально собирает Kinaesthetic AI</h1>
+        <p class="hero-subtitle">
+          Сырые видео и аудио не сохраняются. Здесь показаны только локальные производные сигналы:
+          body-state samples, embeddings, tester labels, overlay state и personal baseline profiles.
+        </p>
+      </section>
+
+      <section class="data-room-summary demo-panel">
+        <article><span>Raw video</span><strong id="rawVideo">--</strong></article>
+        <article><span>Raw audio</span><strong id="rawAudio">--</strong></article>
+        <article><span>Validation labels</span><strong id="roomLabels">--</strong></article>
+        <article><span>Data files</span><strong id="roomFiles">--</strong></article>
+      </section>
+
+      <section class="data-room-table" id="dataRoomFiles"></section>
+    </main>
+
+    <script src="/data_room.js"></script>
+  </body>
+</html>
+

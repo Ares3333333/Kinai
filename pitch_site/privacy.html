@@ -1,0 +1,59 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI — privacy passport</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="content-page">
+      <section class="content-hero">
+        <h1>Privacy passport</h1>
+        <p class="hero-subtitle">
+          Приватность — часть продукта. Кадры обрабатываются локально, на сервер уходят только числовые сигналы.
+          Аудио не записывается. Согласие фиксируется в audit log.
+        </p>
+      </section>
+
+      <section class="demo-panel" style="margin-bottom:18px">
+        <p class="section-kicker">Точные обещания</p>
+        <ol class="privacy-list">
+          <li><strong>Raw video / audio.</strong> Кадры остаются на устройстве и не сохраняются.</li>
+          <li><strong>Что отправляется.</strong> Только производные сигналы: tilt/readiness/recovery, tension-маркеры и labels.</li>
+          <li><strong>Согласие.</strong> Первичный consent логируется в <code>data/consent_log.jsonl</code>.</li>
+          <li><strong>Не медицина.</strong> Это performance coaching, не диагностика и не лечение.</li>
+        </ol>
+      </section>
+
+      <section class="report-layout">
+        <article class="demo-panel">
+          <p class="section-kicker">Что собирается</p>
+          <ul class="privacy-list" id="storedList"></ul>
+        </article>
+        <article class="demo-panel">
+          <p class="section-kicker">Что не собирается</p>
+          <ul class="privacy-list" id="notStoredList"></ul>
+        </article>
+      </section>
+
+      <section class="demo-panel" style="margin-top:18px">
+        <p class="section-kicker">Локальные файлы данных</p>
+        <div class="content-grid" id="dataFiles"></div>
+      </section>
+    </main>
+
+    <script src="/privacy.js"></script>
+  </body>
+</html>
+

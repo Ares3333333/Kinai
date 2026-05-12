@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI · overlay</title>
+    <link rel="stylesheet" href="/overlay.css" />
+  </head>
+  <body>
+    <main class="overlay-root" aria-label="Kinaesthetic AI live overlay">
+      <section class="hud" id="hud">
+        <div class="hud-top">
+          <span class="status-dot"></span>
+          <span id="statusText">Kinaesthetic AI offline</span>
+          <span class="hud-mode" id="sourceBadge">offline</span>
+        </div>
+        <div class="risk-row">
+          <span>Риск тильта</span>
+          <strong id="tiltRisk">--</strong>
+        </div>
+        <div class="meter"><span id="tiltBar" style="width: 0%"></span></div>
+        <div class="mini-grid">
+          <div><span>Готовность</span><strong id="readiness">--</strong></div>
+          <div><span>Recovery</span><strong id="recovery">--</strong></div>
+          <div><span>Челюсть</span><strong id="jawTension">--</strong></div>
+          <div><span>Плечи</span><strong id="shoulderTension">--</strong></div>
+        </div>
+        <div class="alert" id="recommendation">Live engine не подключён</div>
+        <div class="confidence">Сигнал <span id="confidence">--</span></div>
+        <div class="label-flash" id="labelFlash" hidden>Label saved</div>
+      </section>
+    </main>
+    <script type="module" src="/overlay.js"></script>
+  </body>
+</html>

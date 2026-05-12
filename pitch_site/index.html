@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI - anti-tilt coach for gamers</title>
+    <meta name="description" content="Kinaesthetic AI is a browser-based anti-tilt performance coach for gamers: local camera CV, live coach commands, readiness, and recovery proof without storing raw video." />
+    <meta property="og:title" content="Kinaesthetic AI - Anti-tilt coach for gamers" />
+    <meta property="og:description" content="Local browser CV detects early tension, gives one short coach command, and produces recovery proof. Raw video stays on-device." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/assets/kai-ai-scan-player.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="/" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/landing.css" />
+  </head>
+  <body class="landing-body">
+    <header class="landing-header">
+      <a class="brand" href="/" aria-label="Kinaesthetic AI">
+        <span class="brand-mark"></span>
+        <span>Kinaesthetic AI</span>
+      </a>
+      <nav class="landing-header-actions" aria-label="Main navigation">
+        <a class="ghost-pill" href="/play">Product</a>
+        <a class="ghost-pill" href="/demo">Demo</a>
+        <a class="ghost-pill" href="/evidence">Evidence</a>
+        <a class="ghost-pill" href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="landing-main sales-main">
+      <section class="sales-hero">
+        <div class="sales-copy">
+          <p class="landing-eyebrow">Performance coach for competitive gamers</p>
+          <h1>Анти-тильт коуч, который видит напряжение раньше игрока.</h1>
+          <p class="landing-subtitle">
+            Камера в браузере считывает ранние сигналы: челюсть, плечи, позу и качество внимания.
+            Игрок получает одну короткую команду до того, как тильт ломает раунд.
+          </p>
+
+          <div class="landing-cta-row">
+            <a class="cta-primary" href="/play?autostart=1" id="ctaPlay">
+              <span class="cta-icon" aria-hidden="true">▶</span>
+              <span class="cta-label">
+                <strong>Запустить live camera</strong>
+                <small>Видео остается в браузере</small>
+              </span>
+            </a>
+            <a class="cta-secondary" href="/demo" aria-label="Показать 28-секундное investor demo">
+              <span class="cta-label">
+                <strong>Показать investor demo</strong>
+                <small>28 секунд: signal → alert → recovery → proof</small>
+              </span>
+            </a>
+          </div>
+
+          <div class="landing-status" id="landingStatus" data-state="checking" role="status" aria-live="polite">
+            <span class="status-dot"></span>
+            <span class="status-text" id="landingStatusText">Проверяю live engine...</span>
+            <button class="status-help" id="landingStatusHelp" hidden>Как запустить локально</button>
+          </div>
+        </div>
+
+        <aside class="hero-product-frame" aria-label="Product preview">
+          <div class="hero-frame-top">
+            <span>LIVE BODY STATE</span>
+            <strong>Match 04:32</strong>
+          </div>
+          <div class="hero-video-preview">
+            <div class="scan-grid"></div>
+            <div class="ai-scan-portrait">
+              <div class="ai-person">
+                <img class="ai-scan-photo" src="/assets/kai-ai-scan-player.png" alt="AI body-state scan of an esports player" />
+              </div>
+              <div class="scan-readout"><span>Face 98%</span><span>Pose 94%</span></div>
+            </div>
+          </div>
+          <div class="hero-hud-row">
+            <div>
+              <span>Tilt risk</span>
+              <strong>68</strong>
+            </div>
+            <div>
+              <span>Readiness</span>
+              <strong>54</strong>
+            </div>
+            <div>
+              <span>Recovery</span>
+              <strong>31</strong>
+            </div>
+          </div>
+          <div class="hero-coach-card">
+            <span>Coach command</span>
+            <strong>Смягчи челюсть. Опусти плечи. Длинный выдох.</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section class="sales-proof-grid" aria-label="Why it matters">
+        <article>
+          <span>Для игроков</span>
+          <strong>Меньше тильта в матче</strong>
+          <p>Короткая команда не отвлекает от игры и помогает сбросить напряжение в моменте.</p>
+        </article>
+        <article>
+          <span>Для команд</span>
+          <strong>Readiness и recovery proof</strong>
+          <p>После сессии видны пики, восстановление и какие команды реально помогали.</p>
+        </article>
+        <article>
+          <span>Для инвесторов</span>
+          <strong>Privacy-first data moat</strong>
+          <p>Собираются derived body-state signals и labels. Raw video/audio не сохраняются.</p>
+        </article>
+      </section>
+
+      <section class="landing-fast-path" aria-label="Investor path">
+        <div>
+          <span>Для инвестора</span>
+          <strong>Самый короткий путь проверки</strong>
+        </div>
+        <a href="/demo"><b>1</b><span>Посмотреть 28-sec demo</span></a>
+        <a href="/evidence"><b>2</b><span>Открыть proof и privacy</span></a>
+        <a href="/play"><b>3</b><span>Запустить live camera</span></a>
+      </section>
+
+      <section class="contact-strip" aria-label="Contact founder">
+        <div>
+          <span>Pilot / investment</span>
+          <strong>Хотите проверить продукт с командой или обсудить раунд?</strong>
+          <p>Один короткий intro: кто вы, команда/фонд, сколько тестеров готовы дать, и удобный слот для звонка.</p>
+        </div>
+        <a class="cta-primary compact" href="mailto:start@sharprod.com?subject=Kinaesthetic%20AI%20pilot%20%2F%20investor%20intro">
+          <span class="cta-label">
+            <strong>Contact founder</strong>
+            <small>Откроется email intro</small>
+          </span>
+        </a>
+      </section>
+
+      <footer class="landing-footer">
+        <a href="/privacy">Privacy</a>
+        <span aria-hidden="true">-</span>
+        <a href="/metrics">Metrics</a>
+        <span aria-hidden="true">-</span>
+        <a href="/camera-check">Camera check</a>
+        <span aria-hidden="true">-</span>
+        <a href="/evidence">Investor evidence</a>
+      </footer>
+    </main>
+
+    <dialog id="engineHelpDialog" class="landing-help">
+      <form method="dialog">
+        <h2>Как запустить live engine локально</h2>
+        <p>Для локальной камеры откройте сайт на этом компьютере и запустите site server.</p>
+        <ol class="landing-help-list">
+          <li>
+            <strong>Сайт</strong>
+            <code>powershell -NoProfile -ExecutionPolicy Bypass -File Start-Site.ps1</code>
+          </li>
+          <li>
+            <strong>Research cockpit, если нужен Python engine</strong>
+            <code>powershell -NoProfile -ExecutionPolicy Bypass -File Start-KinaestheticAI.ps1</code>
+          </li>
+          <li>
+            <strong>Потом</strong>
+            <span>Откройте /play, нажмите старт и разрешите доступ к камере.</span>
+          </li>
+        </ol>
+        <button class="cta-secondary" type="submit">Закрыть</button>
+      </form>
+    </dialog>
+
+    <script src="/landing.js"></script>
+  </body>
+</html>

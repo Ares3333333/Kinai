@@ -1,0 +1,90 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI · validation study</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="content-page">
+      <section class="content-hero">
+        <p class="section-kicker">Validation Study Mode</p>
+        <h1>20–50 игроков. 150+ labels. Честная проверка.</h1>
+        <p class="hero-subtitle">
+          Это режим исследования: фиксируем тестера, игру, старт/конец сессии,
+          hotkey labels и короткий post-session feedback. Raw video/audio не пишутся.
+        </p>
+      </section>
+
+      <section class="study-grid">
+        <article class="demo-panel">
+          <p class="section-kicker">Сессия</p>
+          <form class="feedback-form" id="studyForm">
+            <div class="form-row">
+              <label for="testerId">ID тестера</label>
+              <input id="testerId" name="tester_id" placeholder="player_001" required />
+            </div>
+            <div class="form-row">
+              <label for="game">Игра</label>
+              <input id="game" name="game" placeholder="Valorant / CS / Apex" />
+            </div>
+            <div class="hero-actions">
+              <button class="primary" type="button" id="startStudy">Старт сессии</button>
+              <button class="secondary" type="button" id="endStudy">Конец сессии</button>
+            </div>
+            <p class="muted" id="studyStatus">Готово к записи validation events.</p>
+          </form>
+          <div class="study-hotkeys">
+            <button data-label="felt_tension">T · почувствовал тильт</button>
+            <button data-label="helped">H · команда помогла</button>
+            <button data-label="false_alert">F · false alert</button>
+          </div>
+        </article>
+
+        <article class="demo-panel">
+          <p class="section-kicker">Post-session</p>
+          <form class="feedback-form" id="postStudyForm">
+            <div class="form-row">
+              <label for="feltAt">Когда почувствовал напряжение?</label>
+              <input id="feltAt" name="felt_at" placeholder="после смерти / clutch / токсичный чат" />
+            </div>
+            <div class="form-row">
+              <label for="useful">Что было полезно?</label>
+              <textarea id="useful" name="useful"></textarea>
+            </div>
+            <div class="form-row">
+              <label for="bug">Что было ложным или раздражающим?</label>
+              <textarea id="bug" name="bug"></textarea>
+            </div>
+            <button class="primary" type="submit">Сохранить post-session feedback</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="demo-panel" style="margin-top:18px">
+        <p class="section-kicker">Progress</p>
+        <div class="cohort-grid">
+          <article><span>Study events</span><strong id="studyEvents">--</strong></article>
+          <article><span>Testers</span><strong id="studyTesters">--</strong></article>
+          <article><span>Labels</span><strong id="studyLabels">--</strong></article>
+          <article><span>Remaining</span><strong id="studyRemaining">--</strong></article>
+        </div>
+        <ul class="cohort-recent" id="studyRecent"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="/study.js"></script>
+  </body>
+</html>
+

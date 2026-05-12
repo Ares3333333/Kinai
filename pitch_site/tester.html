@@ -1,0 +1,92 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI · тестерам</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <p class="eyebrow">Private beta · gamer cohort</p>
+        <h1>Миссия тестера: 5 минут честной игры.</h1>
+        <p class="hero-subtitle">
+          Нам нужны не красивые лайки, а ground-truth labels: когда ты реально почувствовал напряжение,
+          помогла ли команда и где система дала false alert.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="/play">Начать сессию</a>
+          <a class="button secondary" href="/privacy">Что мы пишем</a>
+        </div>
+      </section>
+
+      <section class="tester-layout">
+        <article class="tester-card">
+          <p class="section-kicker">Протокол</p>
+          <ol>
+            <li>Открой <a href="/play">страницу сессии</a> и прими privacy prompt.</li>
+            <li>Запусти cockpit/live engine или включи browser demo.</li>
+            <li>Сядь так, чтобы были видны лицо и плечи. Свет лучше спереди.</li>
+            <li>Сохрани baseline: neutral, jaw lock, shoulders, release.</li>
+            <li>Играй 5 минут в обычном режиме.</li>
+            <li>Во время сессии нажимай одну клавишу:
+              <ul>
+                <li><kbd>H</kbd> — команда помогла</li>
+                <li><kbd>T</kbd> — я почувствовал напряжение</li>
+                <li><kbd>F</kbd> — false alert</li>
+              </ul>
+            </li>
+            <li>После игры заполни короткую форму справа.</li>
+          </ol>
+          <div class="demo-actions">
+            <a class="button primary" href="/play">Перейти в сессию</a>
+            <a class="button secondary" href="/study">Открыть Study Mode</a>
+            <a class="button secondary" href="/metrics">Посмотреть прогресс labels</a>
+          </div>
+        </article>
+
+        <article class="tester-card">
+          <p class="section-kicker">После сессии</p>
+          <form class="feedback-form" id="feedbackForm">
+            <div class="form-row">
+              <label for="name">Имя / Discord / Telegram</label>
+              <input id="name" name="name" autocomplete="nickname" />
+            </div>
+            <div class="form-row">
+              <label for="game">Игра</label>
+              <input id="game" name="game" />
+            </div>
+            <div class="form-row">
+              <label for="rounds">Сколько подсказок было?</label>
+              <input id="rounds" name="rounds" type="number" min="0" />
+            </div>
+            <div class="form-row">
+              <label for="helped_pct">Примерно какой % помог?</label>
+              <input id="helped_pct" name="helped_pct" placeholder="например 60" />
+            </div>
+            <div class="form-row">
+              <label for="comment">Что сработало / что раздражало?</label>
+              <textarea id="comment" name="comment"></textarea>
+            </div>
+            <button class="primary" type="submit">Сохранить feedback</button>
+            <p class="muted" id="feedbackStatus">Сохраняется локально в data/tester_feedback.jsonl.</p>
+          </form>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="/tester.js"></script>
+  </body>
+</html>
+

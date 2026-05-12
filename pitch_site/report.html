@@ -1,0 +1,72 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI — session report</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="content-page">
+      <section class="content-hero">
+        <h1>Session Intelligence Report</h1>
+        <p class="hero-subtitle">Что сломало состояние, как быстро тело восстановилось, какой личный паттерн повторяется и какая команда сработала.</p>
+        <div class="hero-actions">
+          <button class="primary" id="exportDeck">Founder Deck Export</button>
+          <a class="button secondary" href="/demo">Записать новое demo</a>
+        </div>
+      </section>
+
+      <section class="report-layout">
+        <article class="demo-panel">
+          <p class="section-kicker">Сводка</p>
+          <div class="report-chart" id="reportChart"></div>
+        </article>
+        <aside class="demo-panel">
+          <p class="section-kicker">Proof card</p>
+          <div class="proof-card" id="reportProof">
+            <h2>Tilt -- → --</h2>
+            <p>Загрузка...</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="demo-panel replay-panel" style="margin-top:18px">
+        <p class="section-kicker">Session replay</p>
+        <div class="replay-chart" id="sessionReplay">
+          <p class="muted">Загрузка tilt timeline...</p>
+        </div>
+        <div class="replay-legend">
+          <span><i class="legend-tilt"></i>Tilt</span>
+          <span><i class="legend-peak"></i>Peak</span>
+          <span><i class="legend-recovery"></i>Recovery</span>
+          <span><i class="legend-label"></i>Human label</span>
+        </div>
+      </section>
+
+      <section class="content-grid" id="reportCards"></section>
+      <section class="demo-panel" style="margin-top:18px">
+        <p class="section-kicker">Command Effectiveness</p>
+        <div id="commandEffectiveness" class="content-grid"></div>
+      </section>
+      <section class="demo-panel" style="margin-top:18px">
+        <p class="section-kicker">Body-State Embeddings v2</p>
+        <div id="similarStates" class="content-grid"></div>
+      </section>
+      <p class="muted" id="exportStatus"></p>
+    </main>
+
+    <script src="/report.js"></script>
+  </body>
+</html>
+

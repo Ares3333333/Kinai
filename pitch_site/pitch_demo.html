@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI — 90-second pitch demo</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/product.css" />
+  </head>
+  <body class="product-body">
+    <main class="product-shell">
+      <section class="product-hero">
+        <div>
+          <h1>90-секундный pitch demo</h1>
+          <p>Киношный сценарий для записи: baseline → rising tilt → alert → recovery → proof card → export.</p>
+        </div>
+        <div class="product-actions">
+          <button class="primary" id="runPitchDemo">Запустить сценарий</button>
+          <a class="product-button" href="/evidence">Evidence</a>
+        </div>
+      </section>
+      <section class="pitch-demo-stage product-panel">
+        <span id="phaseLabel">Готов</span>
+        <h2 id="phaseTitle">Нажмите запуск</h2>
+        <p id="phaseCommand">Сценарий покажет продукт без хаоса живого теста.</p>
+        <div class="metric-grid">
+          <article class="metric-card"><span>Tilt Risk</span><strong id="phaseTilt">—</strong></article>
+          <article class="metric-card"><span>Readiness</span><strong id="phaseReadiness">—</strong></article>
+          <article class="metric-card"><span>Recovery</span><strong id="phaseRecovery">—</strong></article>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/pitch_demo.js"></script>
+  </body>
+</html>

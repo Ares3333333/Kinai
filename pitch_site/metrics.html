@@ -1,0 +1,145 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI - Metrics</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="content-page metrics-page">
+      <section class="content-hero">
+        <p class="section-kicker">Investor metrics</p>
+        <h1>Понятная воронка: тестеры, сигналы, labels, recovery proof.</h1>
+        <p class="hero-subtitle">
+          Эта страница показывает, что продукт не просто выглядит как демо: он собирает согласованные производные сигналы,
+          подтверждения от игроков и доказательства восстановления. Видео, аудио и кадры не сохраняются.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="/play">Открыть player mode</a>
+          <a class="button secondary" href="/evidence">Investor evidence</a>
+          <button class="ghost" id="refreshMetrics">Обновить</button>
+        </div>
+      </section>
+
+      <section class="cohort-panel demo-panel">
+        <div>
+          <p class="section-kicker">Validation base</p>
+          <h2 id="validationHeadline">0 / 100 testers</h2>
+          <p class="muted" id="validationDetails">
+            Первый milestone: 100+ тестеров и 150+ feedback labels. Это дает инвестору простую картину: кто тестировал,
+            помогла ли команда, сколько было false alerts и как быстро падал tilt risk.
+          </p>
+        </div>
+        <div class="cohort-grid">
+          <article>
+            <span>Testers</span>
+            <strong id="cohortTesters">--</strong>
+            <i><b id="testerBar"></b></i>
+            <small id="testerProgress">--</small>
+          </article>
+          <article>
+            <span>Labels</span>
+            <strong id="cohortLabels">--</strong>
+            <i><b id="cohortBar"></b></i>
+            <small id="cohortProgress">--</small>
+          </article>
+          <article><span>Help rate</span><strong id="cohortHelpRate">--</strong></article>
+          <article><span>False alert</span><strong id="cohortFalseRate">--</strong></article>
+        </div>
+        <ul class="cohort-recent" id="cohortRecent">
+          <li>Пока нет labels. Запустите /play и отметьте T/H/F во время сессии.</li>
+        </ul>
+      </section>
+
+      <section class="metrics-hero-grid">
+        <article class="metric-tile hero-tile">
+          <span>Derived samples</span>
+          <strong id="samplesCount">--</strong>
+          <p>Сигналы body-state без raw video.</p>
+        </article>
+        <article class="metric-tile">
+          <span>Sessions</span>
+          <strong id="sessionsCount">--</strong>
+          <p>Запуски player/demo mode.</p>
+        </article>
+        <article class="metric-tile">
+          <span>Embeddings</span>
+          <strong id="embeddingsCount">--</strong>
+          <p>Векторы похожих состояний.</p>
+        </article>
+        <article class="metric-tile">
+          <span>Feedback labels</span>
+          <strong id="labelsCount">--</strong>
+          <p>Подтверждения от игроков.</p>
+        </article>
+      </section>
+
+      <section class="metrics-layout">
+        <article class="demo-panel">
+          <p class="section-kicker">Recovery proof</p>
+          <div class="proof-card compact-proof">
+            <span>Before / after</span>
+            <h2 id="proofHeadline">Tilt -- -> --</h2>
+            <p id="proofMeta">Ждем live session или investor demo.</p>
+          </div>
+          <div class="metric-row"><span>Recovery delta</span><strong id="recoveryDelta">--</strong></div>
+          <div class="metric-row"><span>Recovery seconds</span><strong id="recoverySeconds">--</strong></div>
+          <div class="metric-row"><span>Command effect</span><strong id="commandEffectiveness">--</strong></div>
+        </article>
+
+        <article class="demo-panel">
+          <p class="section-kicker">Auto-save pipeline</p>
+          <h2 id="storageMode">Local JSONL</h2>
+          <p class="muted" id="storageDetails">
+            /play сохраняет только derived signals, labels, session metadata и proof. Hosted database включается через Supabase env.
+          </p>
+          <div class="metric-row"><span>Raw video</span><strong>Never stored</strong></div>
+          <div class="metric-row"><span>Camera analysis</span><strong>Browser local</strong></div>
+          <div class="metric-row"><span>API writes</span><strong>/api/signals</strong></div>
+        </article>
+      </section>
+
+      <section class="demo-panel command-table-panel">
+        <div>
+          <p class="section-kicker">Command effectiveness</p>
+          <h2>Какие команды реально снижают tilt</h2>
+          <p class="muted">Здесь появляются команды, которые игроки подтвердили кнопками H/F и recovery proof.</p>
+        </div>
+        <div class="command-table" id="commandTable"></div>
+      </section>
+
+      <section class="demo-panel command-table-panel">
+        <div>
+          <p class="section-kicker">False alert control</p>
+          <h2>Ошибки не прячем</h2>
+          <p class="muted">False alerts нужны, чтобы настраивать sensitivity и personal baseline без обмана инвесторов.</p>
+        </div>
+        <div class="command-table" id="falseAlertReview"></div>
+      </section>
+
+      <section class="section data-room">
+        <div>
+          <p class="section-kicker">Stored datasets</p>
+          <h2>Что реально пишется</h2>
+          <p class="muted">Только производные сигналы, события сессии, labels и proof metadata.</p>
+        </div>
+        <div class="data-file-list" id="dataFiles"></div>
+        <a class="button secondary" href="/data-room">Открыть data room</a>
+      </section>
+    </main>
+
+    <script src="/metrics.js"></script>
+  </body>
+</html>
+

@@ -1,0 +1,92 @@
+﻿<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI — Pitch</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark"></span><span>Kinaesthetic AI</span></a>
+      <nav class="nav">
+        <a href="/play">Product</a>
+        <a href="/demo">Demo</a>
+        <a href="/evidence">Evidence</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="content-page pitch-page">
+      <section class="content-hero pitch-hero">
+        <div>
+          <h1>Anti-tilt coach now. Somatic model later.</h1>
+          <p class="hero-subtitle">
+            New category wedge: body-state anti-tilt coach for gamers. Ранние сигналы напряжения, короткая команда и измеримый recovery без raw video.
+          </p>
+          <p class="muted">Сигнальные режимы на сайте: LIVE = real data, DEMO = scripted scenario, STALE = outdated signal, OFFLINE = no active analysis.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="/play">Запустить player mode</a>
+            <a class="button secondary" href="/evidence">Открыть evidence</a>
+            <button class="ghost" id="exportPitchDeck">Founder deck export</button>
+          </div>
+          <p class="muted" id="pitchExportStatus"></p>
+        </div>
+        <aside class="pitch-proof-card">
+          <span>Current proof</span>
+          <strong id="pitchProof">Загрузка proof card...</strong>
+          <p id="pitchProofMeta">Jaw lock · shoulders · recovery</p>
+        </aside>
+      </section>
+
+      <section class="deck-grid">
+        <article class="deck-card large">
+          <span>01</span>
+          <h2>Problem</h2>
+          <p>Игрок обычно замечает тильт слишком поздно, после серии ошибок. Тело показывает ранние сигналы раньше: челюсть, плечи, осанка, микродвижения.</p>
+        </article>
+        <article class="deck-card">
+          <span>02</span>
+          <h2>Wedge</h2>
+          <p>Не “мы единственные с камерой”, а новая прикладная ниша: automotive-grade body-state monitoring logic для gaming performance coaching.</p>
+        </article>
+        <article class="deck-card">
+          <span>03</span>
+          <h2>Product</h2>
+          <p>Local-first webcam CV → Tilt Risk / Readiness / Recovery → краткая команда → proof card по результату.</p>
+        </article>
+        <article class="deck-card">
+          <span>04</span>
+          <h2>Why now</h2>
+          <p>Browser CV, creator economy, esports coaching и персональные copilots сходятся в одном окне возможностей.</p>
+        </article>
+        <article class="deck-card large">
+          <span>05</span>
+          <h2>Data moat</h2>
+          <p>По умолчанию без raw video. Защищённый moat формируется из производных body-state сигналов, embeddings, labels и command effectiveness.</p>
+        </article>
+        <article class="deck-card">
+          <span>06</span>
+          <h2>Claim discipline</h2>
+          <p>Это performance coaching, не медицинская диагностика. Главный KPI: снижение тильта и скорость восстановления.</p>
+        </article>
+      </section>
+
+      <section class="section pitch-roadmap">
+        <div>
+          <p class="section-kicker">7-day build plan</p>
+          <h2>Что усилит заявку прямо сейчас</h2>
+        </div>
+        <div class="roadmap-list">
+          <article><strong>1. Demo video</strong><span>90 секунд: baseline → alert → recovery proof.</span></article>
+          <article><strong>2. Validation</strong><span>20-50 тестеров, 150+ labels, false alert control.</span></article>
+          <article><strong>3. Browser CV</strong><span>Публичный local-first demo без установки.</span></article>
+          <article><strong>4. Team pilot</strong><span>Стримеры, тренеры и небольшие esports-команды.</span></article>
+        </div>
+      </section>
+    </main>
+
+    <script src="/pitch.js"></script>
+  </body>
+</html>
+

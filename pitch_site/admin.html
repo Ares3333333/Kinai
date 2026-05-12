@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI — admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .admin-shell { padding: 32px; max-width: 1100px; margin: 0 auto; color: #e8edf3; }
+      .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 18px; }
+      .admin-card { background: #11141b; border: 1px solid #1d222d; border-radius: 14px; padding: 16px; }
+      .admin-card .label { font-size: 12px; letter-spacing: 0.06em; color: #9aa3af; text-transform: uppercase; }
+      .admin-card .value { font-size: 26px; font-weight: 700; margin-top: 8px; }
+      .admin-card .meta { color: #9aa3af; font-size: 12px; margin-top: 4px; }
+      .admin-pill { display: inline-flex; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+      .pill-ok { background: rgba(53, 242, 154, 0.18); color: #35f29a; }
+      .pill-warn { background: rgba(255, 186, 87, 0.16); color: #ffba57; }
+      .pill-err { background: rgba(255, 117, 117, 0.18); color: #ff7575; }
+      .admin-section { margin-top: 24px; }
+      .admin-section h2 { font-size: 18px; }
+      pre.admin-json { background: #0d1015; border: 1px solid #1d222d; border-radius: 10px; padding: 14px; overflow: auto; font-size: 12px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header style="display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;">
+        <div>
+          <h1 style="margin:0;">Admin · Kinaesthetic AI</h1>
+          <p class="meta" style="margin:4px 0 0; color:#9aa3af;">
+            Read-only ops view of <code>data/</code>. Reload to refresh.
+          </p>
+        </div>
+        <div>
+          <span id="adminStatusPill" class="admin-pill pill-warn">connecting…</span>
+          <button id="adminRefresh" type="button" class="cta-secondary" style="margin-left:8px;">Refresh</button>
+        </div>
+      </header>
+
+      <section class="admin-grid">
+        <div class="admin-card"><div class="label">Sessions</div><div class="value" id="adminSessions">--</div><div class="meta" id="adminSessionsAt">--</div></div>
+        <div class="admin-card"><div class="label">Feedback</div><div class="value" id="adminFeedback">--</div><div class="meta" id="adminFeedbackAt">--</div></div>
+        <div class="admin-card"><div class="label">Coach memory</div><div class="value" id="adminCoachMem">--</div><div class="meta" id="adminCoachMemAt">--</div></div>
+        <div class="admin-card"><div class="label">Consent records</div><div class="value" id="adminConsent">--</div><div class="meta" id="adminConsentAt">--</div></div>
+        <div class="admin-card"><div class="label">Engine</div><div class="value" id="adminEngine">--</div><div class="meta" id="adminEngineMeta">heartbeat / overlay age</div></div>
+        <div class="admin-card"><div class="label">Help rate</div><div class="value" id="adminHelpRate">--</div><div class="meta" id="adminLabelTotals">total labels</div></div>
+        <div class="admin-card"><div class="label">False alert rate</div><div class="value" id="adminFalseRate">--</div><div class="meta">helped / felt_tension / false_alert</div></div>
+        <div class="admin-card"><div class="label">Auth posture</div><div class="value" id="adminAuth">--</div><div class="meta" id="adminAuthMeta">consent · rate-limit</div></div>
+      </section>
+
+      <section class="admin-section">
+        <h2>Allowed origins</h2>
+        <pre class="admin-json" id="adminOrigins">--</pre>
+      </section>
+
+      <section class="admin-section">
+        <h2>Deprecated routes (still served, schedule migration)</h2>
+        <pre class="admin-json" id="adminDeprecated">--</pre>
+      </section>
+
+      <section class="admin-section">
+        <h2>Raw response</h2>
+        <pre class="admin-json" id="adminRaw">--</pre>
+      </section>
+    </main>
+
+    <script type="module" src="/admin.js"></script>
+  </body>
+</html>

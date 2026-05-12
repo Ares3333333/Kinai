@@ -1,0 +1,81 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual env ---
+.venv/
+venv/
+env/
+
+# --- Build / dist ---
+build/
+dist/
+*.egg-info/
+
+# --- Local secrets / config ---
+.env
+.env.local
+.env.*.local
+.env.production
+.env.production.example.bak
+secrets/
+**/secrets.local.json
+
+# --- Operational logs (do NOT track) ---
+*.log
+launcher-*.log
+streamlit.log
+streamlit.err.log
+site_server.log
+site_server.err.log
+logs/
+
+# --- Runtime data files (testers + coach memory + sessions) ---
+# Keep schema/seed data in repo; ignore live append-only artifacts.
+data/**
+!data/.gitkeep
+data/coach_memory.jsonl
+data/tester_feedback.jsonl
+data/public_sessions.jsonl
+data/public_browser_signals.jsonl
+data/public_session_state.json
+data/overlay_state.json
+data/engine_heartbeat.json
+data/somatic_stream.csv
+data/affective_somatic_dataset.jsonl
+data/body_language_api_stream.jsonl
+data/body_state_embeddings.jsonl
+data/validation_study.jsonl
+data/consent_log.jsonl
+data/founder_exports/
+data/profiles/
+data/admin/
+
+# --- Backup / scratch ---
+*.backup
+*.backup-*
+*.bak
+*.orig
+*.tmp~
+*~
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# --- Node (Playwright e2e) ---
+node_modules/
+playwright-report/
+test-results/
+.playwright/
+
+# --- Local scratch files ---
+tmp_bad.js
