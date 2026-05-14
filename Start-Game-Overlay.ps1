@@ -5,6 +5,10 @@
 .DESCRIPTION
   Opens /play for camera CV and a small always-on-top overlay window.
 #>
+param(
+    [string]$SiteUrl = ""
+)
+
 $ErrorActionPreference = "Stop"
 
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -15,9 +19,12 @@ $RequirementsFile = Join-Path $ProjectDir "requirements.txt"
 $OutLog = Join-Path $ProjectDir "site_server.log"
 $ErrLog = Join-Path $ProjectDir "site_server.err.log"
 $LauncherLog = Join-Path $ProjectDir "game_overlay_launcher.log"
-$PlayUrl = "http://localhost:8502/play"
-$OverlayUrl = "http://localhost:8502/overlay?mode=tiny&voice=1&window=1"
-$HealthUrl = "http://localhost:8502/healthz"
+$DefaultBaseUrl = if ($SiteUrl) { $SiteUrl } elseif ($env:KAI_SITE_URL) { $env:KAI_SITE_URL } else { "http://localhost:8502" }
+$BaseUrl = $DefaultBaseUrl.TrimEnd("/")
+$PlayUrl = "$BaseUrl/play"
+$OverlayUrl = "$BaseUrl/overlay?mode=tiny&voice=1&window=1"
+$HealthUrl = "$BaseUrl/healthz"
+$TopMostScript = Join-Path $ProjectDir "Keep-Overlay-TopMost.ps1"
 
 Set-Location $ProjectDir
 
@@ -77,6 +84,11 @@ function Find-Browser {
 }
 
 function Start-SiteIfNeeded {
+    if ($BaseUrl -notmatch "^http://(localhost|127\.0\.0\.1)(:\d+)?$") {
+        Write-LauncherLog "Using remote site: $BaseUrl"
+        return
+    }
+
     if (-not (Test-Path $PythonExe)) {
         $systemPython = $null
         foreach ($candidate in @("python", "py", "python3")) {
@@ -109,42 +121,6 @@ function Start-SiteIfNeeded {
     if (Test-Url -Url $HealthUrl) { Write-LauncherLog "Health OK" } else { Write-LauncherLog "Health not ready yet; opening browser anyway" }
 }
 
-function Set-WindowTopMostByProcess {
-    param([int]$ProcessId)
-    Add-Type -TypeDefinition @"
-using System;
-using System.Text;
-using System.Runtime.InteropServices;
-public static class WinTopMost {
-  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
-  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-  public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-  public const UInt32 SWP_NOMOVE = 0x0002;
-  public const UInt32 SWP_NOSIZE = 0x0001;
-  public const UInt32 SWP_SHOWWINDOW = 0x0040;
-  public static void Apply(uint pid) {
-    EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
-      uint windowPid;
-      GetWindowThreadProcessId(hWnd, out windowPid);
-      if (windowPid == pid && IsWindowVisible(hWnd)) {
-        StringBuilder title = new StringBuilder(256);
-        GetWindowText(hWnd, title, title.Capacity);
-        if (title.ToString().Contains("Kinaesthetic AI")) {
-          SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-        }
-      }
-      return true;
-    }, IntPtr.Zero);
-  }
-}
-"@ -ErrorAction SilentlyContinue
-    [WinTopMost]::Apply([uint32]$ProcessId)
-}
-
 try {
     Write-LauncherLog "Launcher started"
     Start-SiteIfNeeded
@@ -163,10 +139,19 @@ try {
     ) -PassThru
     Write-LauncherLog "Overlay process PID: $($overlayProcess.Id)"
 
-    Start-Sleep -Seconds 2
-    for ($i = 0; $i -lt 8; $i++) {
-        try { Set-WindowTopMostByProcess -ProcessId $overlayProcess.Id } catch {}
-        Start-Sleep -Milliseconds 500
+    if (Test-Path $TopMostScript) {
+        Start-Process -FilePath "powershell.exe" -ArgumentList @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $TopMostScript,
+            "-Title", "Kinaesthetic AI - game overlay",
+            "-Seconds", "7200",
+            "-X", "40",
+            "-Y", "40",
+            "-Width", "360",
+            "-Height", "260"
+        ) -WindowStyle Hidden | Out-Null
+        Write-LauncherLog "TopMost watchdog started"
     }
 
     Write-Host "Game recording mode is ready." -ForegroundColor Green

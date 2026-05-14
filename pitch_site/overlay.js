@@ -27,9 +27,9 @@ let lastVoiceCommand = "";
 let lastVoiceAt = 0;
 
 const tension = {
-  low: "низкое",
-  medium: "среднее",
-  high: "высокое",
+  low: "low",
+  medium: "medium",
+  high: "high",
 };
 
 function pct(value) {
@@ -38,26 +38,26 @@ function pct(value) {
 }
 
 function statusCopy(state) {
-  if (state.mode === "live") return "LIVE: идёт анализ";
-  if (state.mode === "demo") return "DEMO: сценарий для записи";
-  if (state.mode === "stale") return "STALE: сигнал устарел";
-  if (state.mode === "offline") return "OFFLINE: анализ не идёт";
-  if (state.alert_level === "low_signal") return "Слабый сигнал";
-  if (state.alert_level === "recovery") return "Восстановление улучшается";
-  if (state.alert_level === "warning") return "Риск тильта растёт";
-  return "Готов";
+  if (state.mode === "live") return "LIVE: analyzing";
+  if (state.mode === "demo") return "DEMO: scripted";
+  if (state.mode === "stale") return "STALE: signal old";
+  if (state.mode === "offline") return "OFFLINE: no analysis";
+  if (state.alert_level === "low_signal") return "Low signal";
+  if (state.alert_level === "recovery") return "Recovery improving";
+  if (state.alert_level === "warning") return "Tilt rising";
+  return "Ready";
 }
 
 function recommendationCopy(state) {
-  if (state.mode === "offline") return "Открой /play и нажми Старт с камерой";
-  if (state.mode === "stale") return "Сигнал устарел. Проверь /play";
-  if (state.mode === "demo") return "Демо-режим";
-  if (state.alert_level === "low_signal") return "Улучши свет и сядь перед камерой";
-  if (state.alert_level === "recovery") return state.recommendation || "Сохраняй мягкость";
+  if (state.mode === "offline") return "Open /play and start camera";
+  if (state.mode === "stale") return "Signal stale. Check /play";
+  if (state.mode === "demo") return "Demo mode";
+  if (state.alert_level === "low_signal") return "Improve light. Face the camera.";
+  if (state.alert_level === "recovery") return state.recommendation || "Hold the reset.";
   if (state.alert_level === "warning") {
-    return state.recommendation || "Челюсть мягко. Плечи вниз. Длинный выдох.";
+    return state.recommendation || "Soft jaw. Shoulders down. Long exhale.";
   }
-  return state.recommendation || `Готовность ${pct(state.readiness)}`;
+  return state.recommendation || `Readiness ${pct(state.readiness)}`;
 }
 
 function maybeSpeak(state, command) {
@@ -68,7 +68,11 @@ function maybeSpeak(state, command) {
   if (now - lastVoiceAt < 9000) return;
   lastVoiceCommand = command;
   lastVoiceAt = now;
-  speak(command, { cooldownMs: 9000, kind: state.alert_level === "recovery" ? "recovery" : "alert" });
+  speak(command, {
+    cooldownMs: 9000,
+    kind: state.alert_level === "recovery" ? "recovery" : "alert",
+    lang: "en",
+  });
 }
 
 function render(state) {
@@ -140,7 +144,7 @@ async function saveOverlayLabel(key) {
 async function enableVoice() {
   setMuted(false);
   voiceUnlocked = await unlockAudio();
-  nodes.voiceUnlock.textContent = voiceUnlocked ? "Голос включён" : "Голос недоступен";
+  nodes.voiceUnlock.textContent = voiceUnlocked ? "Voice enabled" : "Voice unavailable";
   nodes.voiceUnlock.dataset.ready = voiceUnlocked ? "true" : "false";
   setTimeout(() => {
     if (voiceUnlocked) nodes.voiceUnlock.hidden = true;
@@ -155,7 +159,7 @@ window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "m") {
     setMuted(!isMuted());
     nodes.voiceUnlock.hidden = false;
-    nodes.voiceUnlock.textContent = isMuted() ? "Голос выключен" : "Голос включён";
+    nodes.voiceUnlock.textContent = isMuted() ? "Voice muted" : "Voice enabled";
     return;
   }
   saveOverlayLabel(event.key.toLowerCase());
