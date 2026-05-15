@@ -14,6 +14,6 @@ COPY . /app
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=12 CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT', '8080'), timeout=2).read()" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()" || exit 1
 
-CMD ["sh", "-c", "export HOST=0.0.0.0 PORT=${PORT:-8080}; echo Starting Kinaesthetic AI Site on HOST=$HOST PORT=$PORT; exec python site_server.py"]
+CMD ["python", "site_server.py"]
