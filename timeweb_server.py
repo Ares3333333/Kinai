@@ -23,9 +23,11 @@ def _env_port() -> int:
     except ValueError:
         print(f"Invalid PORT={raw!r}; using 8080", flush=True)
         return 8080
+
     if port <= 0 or port > 65535:
         print(f"Out-of-range PORT={raw!r}; using 8080", flush=True)
         return 8080
+
     return port
 
 
@@ -33,9 +35,14 @@ def _bind_host() -> str:
     explicit = os.getenv("KAI_BIND_HOST", "").strip()
     if explicit:
         return explicit
+
     raw = os.getenv("HOST", "").strip()
     if raw and raw not in {"0.0.0.0", "::", "localhost", "127.0.0.1"}:
-        print(f"Ignoring HOST={raw!r}; binding to 0.0.0.0 for container runtime.", flush=True)
+        print(
+            f"Ignoring HOST={raw!r}; binding to 0.0.0.0 for container runtime.",
+            flush=True,
+        )
+
     return "0.0.0.0"
 
 
@@ -95,6 +102,8 @@ WRITE_ROUTES = {
     "/api/autolearn-run": "autolearn_run",
 }
 
+HEALTH_PATHS = {"/", "/health", "/healthz", "/api/healthz"}
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
@@ -109,7 +118,13 @@ def storage_status() -> dict:
     url = env_value("SUPABASE_URL")
     key = env_value("SUPABASE_SERVICE_ROLE_KEY")
     table = env_value("SUPABASE_EVENTS_TABLE", "kinaesthetic_events")
-    configured = provider == "supabase" and url.startswith(("https://", "http://")) and bool(key)
+
+    configured = (
+        provider == "supabase"
+        and url.startswith(("https://", "http://"))
+        and bool(key)
+    )
+
     diagnostics = []
     if provider != "supabase":
         diagnostics.append("STORAGE_BACKEND is not supabase")
@@ -117,24 +132,42 @@ def storage_status() -> dict:
         diagnostics.append("SUPABASE_URL is not set")
     if not key:
         diagnostics.append("SUPABASE_SERVICE_ROLE_KEY is not set")
+
     return {
         "ok": True,
         "provider": "supabase" if configured else "local",
         "configured": configured,
         "table": table if configured else None,
         "diagnostics": diagnostics,
-        "privacy": "Only derived signals, labels, session metadata and camera diagnostics are stored. Raw video/audio/frames are never uploaded.",
+        "privacy": (
+            "Only derived signals, labels, session metadata and camera diagnostics "
+            "are stored. Raw video/audio/frames are never uploaded."
+        ),
+    }
+
+
+def health_payload() -> dict:
+    return {
+        "ok": True,
+        "service": "kinaesthetic-timeweb",
+        "host": HOST,
+        "port": PORT,
+        "uptime_seconds": round(time.time() - STARTED_AT, 1),
+        "storage": storage_status(),
     }
 
 
 def event_from_payload(kind: str, payload: dict, headers=None) -> dict:
     payload = payload if isinstance(payload, dict) else {}
+
     return {
         "event_type": kind,
         "session_id": payload.get("session_id"),
         "tester_id": payload.get("tester_id"),
         "game": payload.get("game"),
-        "source": payload.get("source") or payload.get("mode") or "timeweb_public_site",
+        "source": payload.get("source")
+        or payload.get("mode")
+        or "timeweb_public_site",
         "payload": {
             **payload,
             "received_at": utc_now_iso(),
@@ -142,18 +175,28 @@ def event_from_payload(kind: str, payload: dict, headers=None) -> dict:
             "raw_media_stored": False,
             "user_agent": headers.get("User-Agent", "")[:300] if headers else "",
         },
-        "created_at": payload.get("timestamp") or payload.get("accepted_at") or utc_now_iso(),
+        "created_at": payload.get("timestamp")
+        or payload.get("accepted_at")
+        or utc_now_iso(),
     }
 
 
 def mirror_to_supabase(kind: str, payload: dict, headers=None) -> dict:
     status = storage_status()
+
     if not status["configured"]:
-        return {"mirrored": False, "provider": status["provider"], "reason": "not_configured"}
+        return {
+            "mirrored": False,
+            "provider": status["provider"],
+            "reason": "not_configured",
+        }
+
     supabase_url = env_value("SUPABASE_URL").rstrip("/")
     supabase_key = env_value("SUPABASE_SERVICE_ROLE_KEY")
     table = env_value("SUPABASE_EVENTS_TABLE", "kinaesthetic_events")
+
     event = event_from_payload(kind, payload, headers=headers)
+
     req = urllib.request.Request(
         f"{supabase_url}/rest/v1/{table}",
         data=json.dumps(event, ensure_ascii=False).encode("utf-8"),
@@ -165,57 +208,121 @@ def mirror_to_supabase(kind: str, payload: dict, headers=None) -> dict:
         },
         method="POST",
     )
+
     try:
         with urllib.request.urlopen(req, timeout=2.5) as response:
-            return {"mirrored": 200 <= response.status < 300, "provider": "supabase", "status": response.status}
+            return {
+                "mirrored": 200 <= response.status < 300,
+                "provider": "supabase",
+                "status": response.status,
+            }
     except urllib.error.HTTPError as exc:
         body = exc.read(300).decode("utf-8", errors="replace") if exc.fp else ""
-        return {"mirrored": False, "provider": "supabase", "error": f"HTTP {exc.code}", "body": body}
+        return {
+            "mirrored": False,
+            "provider": "supabase",
+            "error": f"HTTP {exc.code}",
+            "body": body,
+        }
     except Exception as exc:
-        return {"mirrored": False, "provider": "supabase", "error": str(exc)[:300]}
+        return {
+            "mirrored": False,
+            "provider": "supabase",
+            "error": str(exc)[:300],
+        }
+
+
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
 
 
 class TimewebHandler(BaseHTTPRequestHandler):
-    server_version = "KinaestheticTimeweb/1.0"
+    server_version = "KinaestheticTimeweb/1.1"
 
     def log_message(self, fmt: str, *args) -> None:
-        print("%s - %s" % (self.address_string(), fmt % args), flush=True)
+        print("%s - %s" % (self.client_address[0], fmt % args), flush=True)
 
-    def _send_bytes(self, status: int, body: bytes, content_type: str) -> None:
-        self.send_response(status)
+    def _common_headers(self, content_type: str, content_length: int | None = None) -> None:
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
+        if content_length is not None:
+            self.send_header("Content-Length", str(content_length))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         self.send_header("Permissions-Policy", "camera=(self), microphone=()")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Connection", "close")
+
+    def _send_empty(self, status: int = 200, content_type: str = "text/plain; charset=utf-8") -> None:
+        self.send_response(status)
+        self._common_headers(content_type, 0)
+        self.end_headers()
+
+    def _send_bytes(self, status: int, body: bytes, content_type: str) -> None:
+        self.send_response(status)
+        self._common_headers(content_type, len(body))
         self.end_headers()
         self.wfile.write(body)
 
     def _send_json(self, payload: dict, status: int = 200) -> None:
-        self._send_bytes(status, json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._send_bytes(status, body, "application/json; charset=utf-8")
 
     def _send_file(self, path: Path) -> None:
-        if not path.exists() or not path.is_file():
-            self._send_json({"ok": False, "error": "not_found"}, 404)
+        try:
+            if not path.exists() or not path.is_file():
+                self._send_json({"ok": False, "error": "not_found"}, 404)
+                return
+
+            content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+            self._send_bytes(200, path.read_bytes(), content_type)
+        except Exception as exc:
+            self._send_json(
+                {
+                    "ok": False,
+                    "error": "file_read_error",
+                    "detail": str(exc)[:300],
+                },
+                500,
+            )
+
+    def do_OPTIONS(self) -> None:
+        self._send_empty(204)
+
+    def do_HEAD(self) -> None:
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+
+        if path in HEALTH_PATHS:
+            self._send_empty(200)
             return
-        content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
-        self._send_bytes(200, path.read_bytes(), content_type)
+
+        route_file = ROUTES.get(path)
+        if route_file and (SITE_ROOT / route_file).exists():
+            self._send_empty(200)
+            return
+
+        candidate = (SITE_ROOT / path.lstrip("/")).resolve()
+        try:
+            candidate.relative_to(SITE_ROOT.resolve())
+        except ValueError:
+            self._send_empty(400)
+            return
+
+        if candidate.exists() and candidate.is_file():
+            self._send_empty(200)
+            return
+
+        self._send_empty(404)
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
         if path in {"/health", "/healthz", "/api/healthz"}:
-            self._send_json(
-                {
-                    "ok": True,
-                    "service": "kinaesthetic-timeweb",
-                    "host": HOST,
-                    "port": PORT,
-                    "uptime_seconds": round(time.time() - STARTED_AT, 1),
-                    "storage": storage_status(),
-                }
-            )
+            self._send_json(health_payload())
             return
 
         if path == "/api/state":
@@ -252,12 +359,20 @@ class TimewebHandler(BaseHTTPRequestHandler):
             )
             return
 
-        if path in {"/api/evidence", "/api/report", "/api/investor-metrics", "/api/cohort-summary"}:
+        if path in {
+            "/api/evidence",
+            "/api/report",
+            "/api/investor-metrics",
+            "/api/cohort-summary",
+        }:
             self._send_json(
                 {
                     "ok": True,
                     "mode": "public_demo",
-                    "summary": "Public hosted demo is online. Live camera analysis runs locally in the browser.",
+                    "summary": (
+                        "Public hosted demo is online. "
+                        "Live camera analysis runs locally in the browser."
+                    ),
                     "privacy": "Raw video is not uploaded or stored.",
                 }
             )
@@ -267,32 +382,65 @@ class TimewebHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "mode": "public_demo", "files": []})
             return
 
-        if path in {"/api/performance-profile", "/api/session-score", "/api/coach-memory", "/api/validation-mode"}:
-            self._send_json({"ok": True, "mode": "public_demo", "rows": [], "summary": None})
+        if path in {
+            "/api/performance-profile",
+            "/api/session-score",
+            "/api/coach-memory",
+            "/api/validation-mode",
+        }:
+            self._send_json(
+                {
+                    "ok": True,
+                    "mode": "public_demo",
+                    "rows": [],
+                    "summary": None,
+                }
+            )
+            return
+
+        if path == "/favicon.ico":
+            self._send_empty(204, "image/x-icon")
             return
 
         route_file = ROUTES.get(path)
+
         if route_file:
-            self._send_file(SITE_ROOT / route_file)
+            file_path = SITE_ROOT / route_file
+
+            if path == "/" and not file_path.exists():
+                self._send_bytes(
+                    200,
+                    b"Kinaesthetic AI is running",
+                    "text/plain; charset=utf-8",
+                )
+                return
+
+            self._send_file(file_path)
             return
 
         candidate = (SITE_ROOT / path.lstrip("/")).resolve()
+
         try:
             candidate.relative_to(SITE_ROOT.resolve())
         except ValueError:
             self._send_json({"ok": False, "error": "invalid_path"}, 400)
             return
+
         self._send_file(candidate)
 
     def _read_json_body(self) -> dict:
         length = int(self.headers.get("Content-Length", "0") or 0)
+
         if not length:
             return {}
+
         raw = self.rfile.read(min(length, 2_000_000))
+
         try:
             parsed = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
             return {}
+
         return parsed if isinstance(parsed, dict) else {}
 
     def do_POST(self) -> None:
@@ -303,17 +451,33 @@ class TimewebHandler(BaseHTTPRequestHandler):
         if path == "/api/queue-flush":
             rows = payload.get("events") if isinstance(payload.get("events"), list) else []
             mirrored = []
+
             for item in rows[:500]:
                 if not isinstance(item, dict):
                     continue
-                kind = str(item.get("kind") or item.get("path") or "queued_event").strip("/")[:80]
+
+                kind = str(item.get("kind") or item.get("path") or "queued_event")
+                kind = kind.strip("/")[:80]
+
                 event_payload = item.get("payload") if isinstance(item.get("payload"), dict) else item
-                mirrored.append(mirror_to_supabase(kind, event_payload, headers=self.headers))
-            self._send_json({"ok": True, "stored": any(row.get("mirrored") for row in mirrored), "replayed": len(mirrored), "storage": storage_status()})
+
+                mirrored.append(
+                    mirror_to_supabase(kind, event_payload, headers=self.headers)
+                )
+
+            self._send_json(
+                {
+                    "ok": True,
+                    "stored": any(row.get("mirrored") for row in mirrored),
+                    "replayed": len(mirrored),
+                    "storage": storage_status(),
+                }
+            )
             return
 
         kind = WRITE_ROUTES.get(path, path.strip("/").replace("/", "_") or "event")
         storage = mirror_to_supabase(kind, payload, headers=self.headers)
+
         self._send_json(
             {
                 "ok": True,
@@ -327,10 +491,15 @@ class TimewebHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     SITE_ROOT.mkdir(parents=True, exist_ok=True)
+
     print(f"Starting Kinaesthetic AI Timeweb server on {HOST}:{PORT}", flush=True)
-    print(f"Health: http://{HOST}:{PORT}/health", flush=True)
+    print(f"Health GET: http://{HOST}:{PORT}/health", flush=True)
+    print(f"Health HEAD: http://{HOST}:{PORT}/health", flush=True)
+    print(f"Root: http://{HOST}:{PORT}/", flush=True)
     print(f"Storage: {json.dumps(storage_status(), ensure_ascii=False)}", flush=True)
-    ThreadingHTTPServer((HOST, PORT), TimewebHandler).serve_forever()
+
+    server = ReusableThreadingHTTPServer((HOST, PORT), TimewebHandler)
+    server.serve_forever()
 
 
 if __name__ == "__main__":
