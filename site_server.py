@@ -700,7 +700,7 @@ class KinaestheticSiteHandler(BaseHTTPRequestHandler):
         if path.startswith("/api/") and not self._rate_limit_or_reject(write=False):
             return
 
-        if path == "/healthz" or path == "/api/healthz":
+        if path in {"/health", "/healthz", "/api/healthz"}:
             self.send_json({"ok": True, "service": "kinaesthetic-site", "port": PORT})
             return
 
@@ -745,6 +745,9 @@ class KinaestheticSiteHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/system-health":
             self.send_json(system_health())
+            return
+        if path == "/api/live-browser-state":
+            self.send_json(intel.public_live_state())
             return
 
         if path == "/api/demo-readiness":

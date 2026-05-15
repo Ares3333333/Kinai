@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -11,24 +12,24 @@ from urllib import error, request
 APP_ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL = "gemini-2.5-flash"
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
+HEALTH_CACHE_TTL_SECONDS = 30.0
 
 COACH_SYSTEM_PROMPT = (
-    "Ты киберспортивный performance coach с экспертизой в биомеханике. "
-    "Игрок близок к тильту или теряет готовность. "
-    "Дай ОДНУ короткую команду до 10 слов, без медицинских утверждений, "
-    "чтобы он быстро сбросил физическое напряжение прямо во время игры."
+    "You are an esports performance coach with biomechanics expertise. "
+    "Return exactly ONE short command in English, maximum 10 words. "
+    "No markdown, no explanation, no medical claims. "
+    "Use safe actions only: soften jaw, drop shoulders, exhale, widen gaze, reset posture, return focus."
 )
 
 LOCAL_FALLBACK_COMMANDS = [
-    "Мягкая челюсть. Плечи вниз. Длинный выдох.",
-    "Отпусти лицо. Сядь ровно. Верни обзор.",
-    "Плечи ниже. Взгляд широкий. Один спокойный вдох.",
-    "Разожми челюсть. Локти тяжелее. Играй следующий момент.",
+    "Soften jaw. Drop shoulders. Long exhale.",
+    "Release face. Sit tall. Widen your view.",
+    "Shoulders lower. Eyes wide. One calm breath.",
+    "Unclench jaw. Heavy elbows. Play the next moment.",
 ]
 
 _health_cache: dict[str, Any] | None = None
 _health_cache_at = 0.0
-HEALTH_CACHE_TTL_SECONDS = 30.0
 
 
 def read_dotenv() -> dict[str, str]:
@@ -69,6 +70,22 @@ def fallback_command(payload: dict[str, Any] | None = None) -> str:
     return LOCAL_FALLBACK_COMMANDS[1]
 
 
+def sanitize_command(command: str, payload: dict[str, Any] | None = None) -> str:
+    text = (command or "").strip().strip('"').strip()
+    text = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", text, flags=re.MULTILINE)
+    text = next((part.strip() for part in text.splitlines() if part.strip()), text)
+    for separator in (";", " / ", " then ", " and then "):
+        if separator in text.lower():
+            text = text.split(separator, 1)[0].strip()
+    parts = [part.strip() for part in re.split(r"[.!?]+", text) if part.strip()]
+    if parts:
+        text = parts[0]
+    words = text.strip(" -–—:;,.").split()
+    if not words:
+        return fallback_command(payload)
+    return " ".join(words[:10])
+
+
 def _post_generate_content(
     *,
     api_key: str,
@@ -104,11 +121,7 @@ def _post_generate_content(
         latency_ms = round((time.perf_counter() - started) * 1000)
         raw = response.read().decode("utf-8")
     data = json.loads(raw)
-    parts = (
-        data.get("candidates", [{}])[0]
-        .get("content", {})
-        .get("parts", [])
-    )
+    parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
     text = "".join(str(part.get("text", "")) for part in parts).strip()
     return text, latency_ms
 
@@ -130,7 +143,7 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": None,
-            "message": "GEMINI_API_KEY не задан. Будет использована локальная команда без LLM.",
+            "message": "GEMINI_API_KEY is not set. Local command fallback is active.",
         }
         _health_cache = result
         _health_cache_at = now
@@ -141,7 +154,7 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
         text, latency_ms = _post_generate_content(
             api_key=api_key,
             model=model,
-            contents=[{"role": "user", "parts": [{"text": "Ответь только: OK"}]}],
+            contents=[{"role": "user", "parts": [{"text": "Reply only: OK"}]}],
             timeout=timeout,
             temperature=0.0,
             max_tokens=16,
@@ -154,11 +167,8 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": ok,
             "model": model,
             "latency_ms": latency_ms,
-            "message": "Gemini отвечает." if ok else "Gemini вернул пустой ответ.",
+            "message": "Gemini is responding." if ok else "Gemini returned an empty response.",
         }
-        _health_cache = result
-        _health_cache_at = now
-        return result
     except TimeoutError:
         result = {
             "provider": "gemini",
@@ -166,11 +176,8 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": round((time.perf_counter() - started) * 1000),
-            "message": "Gemini не ответил за timeout. Используем локальную команду.",
+            "message": "Gemini timed out. Local command fallback is active.",
         }
-        _health_cache = result
-        _health_cache_at = now
-        return result
     except error.HTTPError as exc:
         result = {
             "provider": "gemini",
@@ -178,11 +185,8 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": round((time.perf_counter() - started) * 1000),
-            "message": f"Gemini HTTP {exc.code}. Проверьте ключ, модель и квоты.",
+            "message": f"Gemini HTTP {exc.code}. Check the key, model and quota.",
         }
-        _health_cache = result
-        _health_cache_at = now
-        return result
     except error.URLError as exc:
         result = {
             "provider": "gemini",
@@ -190,11 +194,8 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": round((time.perf_counter() - started) * 1000),
-            "message": f"Gemini недоступен: {exc.reason}",
+            "message": f"Gemini is unavailable: {exc.reason}",
         }
-        _health_cache = result
-        _health_cache_at = now
-        return result
     except Exception as exc:
         result = {
             "provider": "gemini",
@@ -204,9 +205,9 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "latency_ms": round((time.perf_counter() - started) * 1000),
             "message": f"Gemini error: {exc}",
         }
-        _health_cache = result
-        _health_cache_at = now
-        return result
+    _health_cache = result
+    _health_cache_at = now
+    return result
 
 
 def generate_coach_command(payload: dict[str, Any], timeout: float = 8.0) -> dict[str, Any]:
@@ -220,14 +221,11 @@ def generate_coach_command(payload: dict[str, Any], timeout: float = 8.0) -> dic
             "command": fallback_command(payload),
             "latency_ms": 0,
             "fallback": True,
-            "message": "GEMINI_API_KEY не задан.",
+            "message": "GEMINI_API_KEY is not set.",
         }
 
-    prompt = (
-        "Состояние игрока в JSON. Верни только одну короткую команду, "
-        "без объяснений и без markdown:\n"
-        + json.dumps(payload or {}, ensure_ascii=False)
-    )
+    prompt = "Player state JSON. Return exactly one short English command:\n"
+    prompt += json.dumps(payload or {}, ensure_ascii=False)
     started = time.perf_counter()
     try:
         text, latency_ms = _post_generate_content(
@@ -236,17 +234,14 @@ def generate_coach_command(payload: dict[str, Any], timeout: float = 8.0) -> dic
             contents=[{"role": "user", "parts": [{"text": prompt}]}],
             timeout=timeout,
             temperature=0.25,
-            max_tokens=96,
+            max_tokens=48,
             system_instruction=True,
         )
-        command = (text or "").strip().strip('"').strip()
-        if not command:
-            command = fallback_command(payload)
         return {
             "ok": True,
             "provider": "gemini",
             "model": model,
-            "command": command,
+            "command": sanitize_command(text, payload),
             "latency_ms": latency_ms,
             "fallback": False,
         }
@@ -258,5 +253,5 @@ def generate_coach_command(payload: dict[str, Any], timeout: float = 8.0) -> dic
             "command": fallback_command(payload),
             "latency_ms": round((time.perf_counter() - started) * 1000),
             "fallback": True,
-            "message": f"Gemini недоступен, сработал fallback: {exc}",
+            "message": f"Gemini unavailable, fallback active: {exc}",
         }

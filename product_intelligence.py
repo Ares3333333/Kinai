@@ -1512,6 +1512,61 @@ def public_session_timeline(session_id: str | None = None, limit: int = 240) -> 
     }
 
 
+def public_live_state(max_age_seconds: float = 6.0) -> dict[str, Any]:
+    """Latest browser-CV state for the game overlay.
+
+    This is separate from overlay_state.json because /play runs local
+    Browser CV and writes only derived signals through /api/signals.
+    """
+    current = latest_public_session()
+    signals = current.get("last_signal") if isinstance(current.get("last_signal"), dict) else {}
+    updated = parse_timestamp(current.get("updated_at") or current.get("last_heartbeat_at"))
+    age_seconds = None
+    if updated:
+      age_seconds = (_utc_now() - updated.astimezone(timezone.utc)).total_seconds()
+    fresh = bool(
+        current
+        and current.get("status") == "active"
+        and signals
+        and age_seconds is not None
+        and age_seconds <= max_age_seconds
+    )
+    tilt = as_float(signals.get("tilt_risk"), 0.0)
+    confidence = as_float(signals.get("signal_confidence"), as_float(signals.get("confidence"), 0.0))
+    alert_level = "offline"
+    if fresh:
+        if confidence < 0.45:
+            alert_level = "low_signal"
+        elif tilt >= 72:
+            alert_level = "danger"
+        elif tilt >= 45:
+            alert_level = "warning"
+        elif as_float(signals.get("recovery"), 0.0) >= 78 and tilt < 45:
+            alert_level = "recovery"
+        else:
+            alert_level = "calm"
+    return {
+        "mode": "live" if fresh else ("stale" if current else "offline"),
+        "is_live": fresh,
+        "numbers_visible": fresh,
+        "session_id": current.get("session_id"),
+        "tester_id": current.get("tester_id"),
+        "game": current.get("game"),
+        "updated_at": current.get("updated_at"),
+        "age_seconds": round(age_seconds, 1) if age_seconds is not None else None,
+        "alert_level": alert_level,
+        "tilt_risk": round(tilt, 1) if fresh else None,
+        "readiness": round(as_float(signals.get("readiness"), 0.0), 1) if fresh else None,
+        "recovery": round(as_float(signals.get("recovery"), 0.0), 1) if fresh else None,
+        "jaw_tension": signals.get("jaw_tension") if fresh else None,
+        "shoulder_tension": signals.get("shoulder_tension") if fresh else None,
+        "recommendation": str(signals.get("recommendation") or "").strip() if fresh else "Open /play and start camera",
+        "signal_confidence": confidence if fresh else 0.0,
+        "source": "browser_cv",
+        "privacy": {"raw_video_saved": False, "raw_audio_saved": False, "derived_signals_only": True},
+    }
+
+
 def validation_study_summary() -> dict[str, Any]:
     rows = tail_jsonl(VALIDATION_STUDY_PATH, 100_000)
     sessions = {}
@@ -1609,7 +1664,7 @@ def evidence_summary() -> dict[str, Any]:
         "session_report": session_report(),
         "investor_metrics": investor_metrics(),
         "cohort": cohort_summary(),
-        "cloud_coach": llm_health(timeout=1.5),
+        "cloud_coach": llm_health(timeout=0.25),
         "hosted_storage": hosted_storage_status(),
         "privacy": privacy_passport(),
         "claim": "New category wedge: body-state anti-tilt coach for gamers. Early body-state signals, short performance commands and recovery proof. It is not medical diagnosis.",
@@ -2142,20 +2197,23 @@ def export_founder_deck_package() -> dict[str, Any]:
     export_dir.mkdir(parents=True, exist_ok=True)
 
     artifacts = {
-        "evidence_summary.json": evidence_summary(),
+        "evidence_summary.json": {
+            "status": "ready",
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "public_session": public_session_summary(),
+            "proof_card": proof_card(),
+            "investor_metrics": investor_metrics(),
+            "cohort": cohort_summary(),
+            "privacy": privacy_passport(),
+            "claim": "New category wedge: body-state anti-tilt coach for gamers. Performance coaching, not medical diagnosis.",
+        },
         "public_session_report.json": public_session_summary(),
-        "public_session_timeline.json": public_session_timeline(),
         "session_report.json": session_report(),
-        "session_replay.json": session_replay(),
         "proof_card.json": proof_card(),
         "cohort_summary.json": cohort_summary(),
         "validation_study_summary.json": validation_study_summary(),
         "command_effectiveness_table.json": command_effectiveness_table(),
-        "coach_command_library.json": coach_command_library(),
-        "false_alert_review.json": false_alert_review(),
-        "data_room.json": data_room(),
         "privacy_passport.json": privacy_passport(),
-        "llm_health.json": llm_health(timeout=1.5),
     }
     for name, payload in artifacts.items():
         atomic_io.atomic_write_json(export_dir / name, payload)

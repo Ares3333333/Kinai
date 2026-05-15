@@ -67,6 +67,14 @@ function landmarkPoint(landmark, width, height) {
   return [landmark.x * width, landmark.y * height];
 }
 
+const OVERLAY_POSE_POINTS = [0, 11, 12, 13, 14];
+const OVERLAY_POSE_PAIRS = [[11, 12], [0, 11], [0, 12], [11, 13], [12, 14]];
+const FACE_SIGNAL_POINTS = [
+  10, 152, 13, 14, 17, 61, 78, 291, 308,
+  33, 133, 145, 159, 263, 362, 374, 386,
+  70, 105, 300, 336, 0, 9,
+];
+
 function drawDenseSignalField(ctx, width, height, landmarks, color, count = 1536) {
   const visible = (landmarks || []).filter((point) => point && Number.isFinite(point.x) && Number.isFinite(point.y));
   if (!visible.length) return 0;
@@ -146,8 +154,11 @@ function drawBrowserOverlay(canvas, video, poseLandmarks, faceLandmarks, stressC
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, width, height);
-  const allLandmarks = [...(poseLandmarks || []), ...(faceLandmarks || [])];
-  const derivedCount = drawDenseSignalField(ctx, width, height, allLandmarks, stressColor, 2048);
+  const poseSignals = OVERLAY_POSE_POINTS.map((index) => poseLandmarks?.[index]).filter(Boolean);
+  const faceSignals = FACE_SIGNAL_POINTS.map((index) => faceLandmarks?.[index]).filter(Boolean);
+  const signalLandmarks = [...poseSignals, ...faceSignals];
+  const denseSource = faceLandmarks?.length ? faceLandmarks : signalLandmarks;
+  const derivedCount = drawDenseSignalField(ctx, width, height, denseSource, stressColor, faceLandmarks?.length ? 1800 : 900);
   ctx.lineWidth = 3;
   ctx.strokeStyle = stressColor;
   ctx.fillStyle = stressColor;
@@ -156,8 +167,7 @@ function drawBrowserOverlay(canvas, video, poseLandmarks, faceLandmarks, stressC
 
   const point = (landmark) => landmarkPoint(landmark, width, height);
   if (poseLandmarks?.length) {
-    const pairs = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [0, 11], [0, 12]];
-    for (const [a, b] of pairs) {
+    for (const [a, b] of OVERLAY_POSE_PAIRS) {
       if (!poseLandmarks[a] || !poseLandmarks[b]) continue;
       const [x1, y1] = point(poseLandmarks[a]);
       const [x2, y2] = point(poseLandmarks[b]);
@@ -166,7 +176,8 @@ function drawBrowserOverlay(canvas, video, poseLandmarks, faceLandmarks, stressC
       ctx.lineTo(x2, y2);
       ctx.stroke();
     }
-    for (const landmark of poseLandmarks) {
+    for (const index of OVERLAY_POSE_POINTS) {
+      const landmark = poseLandmarks[index];
       if (!landmark) continue;
       const [x, y] = point(landmark);
       ctx.beginPath();
@@ -177,20 +188,27 @@ function drawBrowserOverlay(canvas, video, poseLandmarks, faceLandmarks, stressC
 
   if (faceLandmarks?.length) {
     ctx.shadowBlur = 5;
-    ctx.globalAlpha = 0.72;
+    ctx.globalAlpha = 0.58;
     for (const landmark of faceLandmarks) {
+      const [x, y] = point(landmark);
+      ctx.beginPath();
+      ctx.arc(x, y, 0.85, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.92;
+    for (const landmark of faceSignals) {
       if (!landmark) continue;
       const [x, y] = point(landmark);
       ctx.beginPath();
-      ctx.arc(x, y, 1.35, 0, Math.PI * 2);
+      ctx.arc(x, y, 1.75, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
   return {
     rawLandmarks: (poseLandmarks?.length || 0) + (faceLandmarks?.length || 0),
-    derivedPoints: derivedCount,
-    signalLayers: faceLandmarks?.length ? 7 : 4,
+    derivedPoints: derivedCount + (faceLandmarks?.length || 0),
+    signalLayers: faceLandmarks?.length ? 9 : 4,
   };
 }
 
@@ -257,6 +275,7 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
     // camera geometry differs from hardcoded defaults.
     neutralShoulderDistance: null,
     neutralShoulderWidth: null,
+    neutralJawOpenRatio: null,
     lastBands: {
       jaw: "low",
       shoulders: "low",
@@ -303,7 +322,7 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
       let shoulderWidth = null;
       let forwardHead = 0;       // chin jut: nose Y close to shoulder Y
       let shoulderProtraction = 0; // shoulders rolled forward (width shrinks)
-      let headForwardZ = 0;       // depth lean toward camera
+      let headForwardZ = 0;       // disabled for alerting: MediaPipe Z is too camera-dependent
       let torsoLean = 0;          // hip vs shoulder midline drift
       let postureStress = 0;
       let dominantPosture = "neutral";
@@ -342,11 +361,9 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
           / Math.max(baselineShoulderWidth * 0.22, 0.035)
           * 100
         );
-        // Camera-relative depth: MediaPipe Pose returns Z normalized so
-        // negative = closer to camera. Big negative = leaning into the
-        // monitor. Falls back to 0 if Z not provided.
-        const noseZ = Number.isFinite(nose.z) ? nose.z : 0;
-        headForwardZ = clamp(-noseZ * 220);
+        // MediaPipe Z is too camera-dependent for player-facing alerts.
+        // Keep it in telemetry, but do not let it drive tilt.
+        headForwardZ = 0;
         // Torso lean: midline of shoulders vs midline of hips. When the
         // user rotates / leans sideways the two diverge.
         if (leftHip && rightHip && visibility(leftHip) > 0.35 && visibility(rightHip) > 0.35) {
@@ -362,7 +379,7 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
           { key: "shoulders_up", value: shoulderElevation, weight: 0.95 },
           { key: "forward_head", value: forwardHead, weight: 0.92 },
           { key: "rolled_shoulders", value: shoulderProtraction, weight: 0.90 },
-          { key: "leaning_in", value: headForwardZ, weight: 0.78 },
+          { key: "leaning_in", value: 0, weight: 0 },
           { key: "asymmetric", value: shoulderAsymmetry, weight: 0.70 },
           { key: "torso_lean", value: torsoLean, weight: 0.68 },
           { key: "off_center", value: headOffset, weight: 0.55 },
@@ -417,9 +434,17 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         const lipGap = Math.abs((face[14]?.y || 0) - (face[13]?.y || 0));
         const faceHeight = Math.max(Math.abs((face[152]?.y || 0) - (face[10]?.y || 0)), 0.001);
         const jawOpenRatio = lipGap / faceHeight;
-        const neutralJaw = baseline?.neutral?.jawOpenRatio || 0.035;
-        const clenchedJaw = baseline?.jaw?.jawOpenRatio || 0.012;
-        const landmarkJaw = clamp(((neutralJaw - jawOpenRatio) / Math.max(neutralJaw - clenchedJaw, 0.008)) * 100);
+        const baselineNeutralJaw = Number(baseline?.neutral?.jawOpenRatio);
+        const hasNeutralJaw = Number.isFinite(baselineNeutralJaw) && baselineNeutralJaw > 0.004;
+        const neutralJaw = hasNeutralJaw ? baselineNeutralJaw : runtime.neutralJawOpenRatio;
+        const hasJawPhase = Number.isFinite(Number(baseline?.jaw?.jawOpenRatio));
+        const clenchedJaw = hasJawPhase ? baseline.jaw.jawOpenRatio : (neutralJaw || 0) * 0.52;
+        const jawDeltaRatio = neutralJaw ? (neutralJaw - jawOpenRatio) / Math.max(neutralJaw, 0.008) : 0;
+        const landmarkJaw = hasJawPhase
+          ? clamp(((neutralJaw - jawOpenRatio) / Math.max(neutralJaw - clenchedJaw, 0.008)) * 100)
+          : hasNeutralJaw
+            ? clamp(((jawDeltaRatio - 0.42) / 0.36) * 100)
+            : 0;
         // Raw ARKit-style blendshapes from MediaPipe FaceLandmarker.
         // Real-life maxima land around 0.6-0.85 even when the user
         // exaggerates, so we multiply aggressively (x140); otherwise a
@@ -445,11 +470,25 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         const eyeWideSignal = clamp(eyeWide * 160);
         const eyeSquintSignal = clamp(eyeSquint * 130 + cheekSquint * 60);
         const lipSignal = clamp(
-          mouthPressBlend * 140 + mouthClose * 80 + mouthFrown * 100 + mouthFunnel * 70 + mouthPucker * 55
+          mouthPressBlend * 140 + Math.max(0, mouthClose - 0.48) * 80 + mouthFrown * 100 + mouthFunnel * 70 + mouthPucker * 55
         );
         const sneerSignal = clamp(noseSneer * 150 + browDown * 30);
-        const pressureBlend = clamp(mouthPressBlend * 130 + mouthClose * 65 + mouthFunnel * 45);
+        const pressureBlend = clamp(mouthPressBlend * 130 + Math.max(0, mouthClose - 0.50) * 90 + mouthFunnel * 35);
         jawClench = clamp(Math.max(landmarkJaw, pressureBlend));
+
+        const relaxedMouth =
+          mouthPressBlend < 0.18
+          && mouthFrown < 0.18
+          && mouthFunnel < 0.18
+          && mouthPucker < 0.18
+          && browDown < 0.22;
+        if (!hasNeutralJaw && relaxedMouth && jawOpenRatio > 0.004) {
+          const alpha = 0.04;
+          runtime.neutralJawOpenRatio =
+            runtime.neutralJawOpenRatio == null
+              ? jawOpenRatio
+              : (runtime.neutralJawOpenRatio * (1 - alpha)) + jawOpenRatio * alpha;
+        }
 
         browTension = browSignal;
         eyeTension = eyeSquintSignal;
@@ -506,25 +545,23 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
       // shoulders alone lift it by ~30; both together push past 70.
       let tiltRiskRaw = clamp(
         jawClench * 0.18
-        + postureStress * 0.42
-        + motionIntensity * 0.10
-        + facialTension * 0.50
+        + postureStress * 0.32
+        + motionIntensity * 0.04
+        + facialTension * 0.42
       );
 
       // Single-channel face floors: when the face alone is already
       // screaming, the bar must reflect it even if the body is calm.
-      if (facialTension >= 90) tiltRiskRaw = Math.max(tiltRiskRaw, 80);
-      else if (facialTension >= 75) tiltRiskRaw = Math.max(tiltRiskRaw, 65);
-      else if (facialTension >= 55) tiltRiskRaw = Math.max(tiltRiskRaw, 50);
-      else if (facialTension >= 35) tiltRiskRaw = Math.max(tiltRiskRaw, 30);
+      if (facialTension >= 92) tiltRiskRaw = Math.max(tiltRiskRaw, 72);
+      else if (facialTension >= 82) tiltRiskRaw = Math.max(tiltRiskRaw, 54);
+      else if (facialTension >= 68) tiltRiskRaw = Math.max(tiltRiskRaw, 34);
 
       // Single-channel posture floors: same rule for the body. Forward
       // head + raised shoulders alone is a clear tilt sign even with a
       // poker face.
-      if (postureStress >= 85) tiltRiskRaw = Math.max(tiltRiskRaw, 72);
-      else if (postureStress >= 68) tiltRiskRaw = Math.max(tiltRiskRaw, 55);
-      else if (postureStress >= 50) tiltRiskRaw = Math.max(tiltRiskRaw, 38);
-      else if (postureStress >= 34) tiltRiskRaw = Math.max(tiltRiskRaw, 22);
+      if (postureStress >= 92) tiltRiskRaw = Math.max(tiltRiskRaw, 64);
+      else if (postureStress >= 78) tiltRiskRaw = Math.max(tiltRiskRaw, 46);
+      else if (postureStress >= 60) tiltRiskRaw = Math.max(tiltRiskRaw, 28);
 
       // Compound stress: count how many independent channels are firing.
       // Posture now counts as a single channel rather than three
@@ -536,14 +573,16 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         motionIntensity >= 35,
       ].filter(Boolean).length;
 
-      if (compoundChannels >= 4) tiltRiskRaw = Math.max(tiltRiskRaw, 95);
-      else if (compoundChannels >= 3) tiltRiskRaw = Math.max(tiltRiskRaw, 85);
-      else if (compoundChannels >= 2) tiltRiskRaw = Math.max(tiltRiskRaw, 72);
+      if (compoundChannels >= 4) tiltRiskRaw = Math.max(tiltRiskRaw, 100);
+      else if (compoundChannels >= 3) tiltRiskRaw = Math.max(tiltRiskRaw, 82);
+      else if (compoundChannels >= 2 && facialTension >= 45 && postureStress >= 45) {
+        tiltRiskRaw = Math.max(tiltRiskRaw, 52);
+      }
 
       // Saturated extreme: face AND posture both at peak means genuinely
       // collapsed, so push to ~97 so the bar truly fills.
       if (facialTension >= 80 && postureStress >= 74) {
-        tiltRiskRaw = Math.max(tiltRiskRaw, 97);
+        tiltRiskRaw = Math.max(tiltRiskRaw, 100);
       }
 
       tiltRiskRaw = desensitize(tiltRiskRaw);

@@ -351,6 +351,51 @@ body.product-body {
   box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.28), 0 30px 90px rgba(0, 0, 0, 0.35);
 }
 
+.calibration-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 18px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  box-shadow: none;
+}
+
+.calibration-panel .section-kicker {
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: rgba(53, 242, 154, 0.72);
+}
+
+.calibration-panel h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+.calibration-panel p {
+  margin: 4px 0 0;
+  max-width: 720px;
+  color: var(--product-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.calibration-panel .product-actions {
+  margin: 0;
+  justify-content: flex-end;
+}
+
+.calibration-panel .product-actions button {
+  min-height: 42px;
+  padding: 0 18px;
+}
+
+.calibration-panel #calibrationStatus {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+}
+
 .consent-checks {
   display: grid;
   gap: 10px;

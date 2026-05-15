@@ -1,16 +1,16 @@
-#requires -version 5.1
+﻿#requires -version 5.1
 <#
 .SYNOPSIS
-  Starts only the Kinaesthetic AI site server on :8502 and opens /play.
+  Starts only the Kinaesthetic AI site server on :8502 and opens the landing page.
 .DESCRIPTION
   Used by the desktop shortcut "Kinaesthetic AI - Site". This script:
     - ensures the local Python venv exists and dependencies are installed
       (so the shortcut works on a fresh machine without manual setup);
     - frees TCP port 8502 if a stale process is holding it;
     - launches site_server.py in the background;
-    - waits for /api/engine-health, then opens /play in the default
+    - waits for /api/engine-health, then opens / in the default
       browser.
-  The Streamlit cockpit (port 8501) is intentionally NOT started here —
+  The Streamlit cockpit (port 8501) is intentionally NOT started here -
   the top desktop shortcut "Kinaesthetic AI" handles that one.
 #>
 $ErrorActionPreference = "Stop"
@@ -23,7 +23,7 @@ $RequirementsFile = Join-Path $ProjectDir "requirements.txt"
 $OutLog           = Join-Path $ProjectDir "site_server.log"
 $ErrLog           = Join-Path $ProjectDir "site_server.err.log"
 $LauncherLog      = Join-Path $ProjectDir "launcher-site.log"
-$PlayUrl          = "http://localhost:8502/play"
+$SiteUrl          = "http://localhost:8502/"
 $EngineHealthUrl  = "http://localhost:8502/api/engine-health"
 
 Set-Location $ProjectDir
@@ -128,22 +128,23 @@ $siteProcess = Start-Process `
     -WindowStyle Hidden
 
 Write-LauncherLog "Started site_server PID $($siteProcess.Id)"
-Write-Host "Kinaesthetic AI · site starting..." -ForegroundColor Green
+Write-Host "Kinaesthetic AI - site starting..." -ForegroundColor Green
 Write-Host "Site PID: $($siteProcess.Id)" -ForegroundColor DarkGray
 
 $ready = Wait-ForUrl -Url $EngineHealthUrl
 if ($ready) {
-    Write-Host "Site ready: $PlayUrl" -ForegroundColor Green
+    Write-Host "Site ready: $SiteUrl" -ForegroundColor Green
 } else {
-    Write-Host "Site is still starting. Open manually: $PlayUrl" -ForegroundColor Yellow
+    Write-Host "Site is still starting. Open manually: $SiteUrl" -ForegroundColor Yellow
     Write-Host "If something failed, check: $ErrLog" -ForegroundColor Yellow
     Write-LauncherLog "Server not ready before timeout"
 }
 
-Open-Url -Url $PlayUrl
+Open-Url -Url $SiteUrl
 
 Write-Host ""
 Write-Host "Top shortcut launches the Streamlit cockpit (port 8501)." -ForegroundColor DarkGray
 Write-Host "This shortcut launches the site only (port 8502)." -ForegroundColor DarkGray
 Write-Host "You can close this window. Server keeps running in background." -ForegroundColor Cyan
 Start-Sleep -Seconds 3
+

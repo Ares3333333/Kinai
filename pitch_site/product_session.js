@@ -26,6 +26,8 @@ let lastCoachCommand = "";
 let lastCoachProvider = "local";
 let lastSpokenCommand = "";
 let lastHighRiskState = false;
+let lastUiCommand = "";
+let lastUiCommandAt = 0;
 let tickInFlight = false;
 let calibrationPhases = JSON.parse(localStorage.getItem("kinaesthetic_calibration_phases_v1") || "{}");
 let investorMode = params.get("investor") === "1";
@@ -43,7 +45,40 @@ let recoveryTracker = { peak: 0, peakAt: 0, command: "", proof: null };
 const demoLockSeconds = Math.max(5, Number(params.get("demo_lock_secs") || 90));
 const COACH_COOLDOWN_MS = 18_000;
 const CALIBRATION_SECONDS = 10;
+const BASELINE_TARGET_SAMPLES = 8;
 let calibrationWizard = { active: false, startedAt: 0 };
+const LOCAL_COACH_COMMANDS = {
+  jaw: [
+    "Unclench jaw. Tongue loose. Exhale.",
+    "Open the bite. Drop the jaw.",
+    "Jaw soft. Breathe out slowly.",
+  ],
+  shoulders: [
+    "Drop shoulders. Elbows heavy. Exhale.",
+    "Shoulders down. Neck long. Reset.",
+    "Release traps. Sit back. One breath.",
+  ],
+  posture: [
+    "Sit back. Chin neutral. Breathe low.",
+    "Spine tall. Shoulders loose. Exhale.",
+    "Lean back. Unlock neck and jaw.",
+  ],
+  face: [
+    "Soften eyes. Relax mouth. Exhale.",
+    "Release your face. Keep hands steady.",
+    "Eyes soft. Jaw loose. Stay in control.",
+  ],
+  recovery: [
+    "Good reset. Keep breathing low.",
+    "Recovery is working. Stay loose.",
+    "Hold this calm posture.",
+  ],
+  stable: [
+    "State stable. Keep jaw soft.",
+    "All clear. Shoulders low.",
+    "Good posture. Stay smooth.",
+  ],
+};
 const perf = {
   tickCount: 0,
   droppedTicks: 0,
@@ -99,6 +134,12 @@ function currentBaselineProfile() {
   return stored;
 }
 
+function browserCvBaselineProfile() {
+  const profile = currentBaselineProfile();
+  if (!profile?.neutral) return null;
+  return profile;
+}
+
 function hasPersonalBaseline() {
   const profile = currentBaselineProfile();
   return Boolean(profile?.neutral);
@@ -112,20 +153,23 @@ function updateBaselineBadge(profile = currentBaselineProfile()) {
     badge.textContent = `baseline: personal - ${samples} samples`;
     badge.dataset.state = "live";
   } else {
-    badge.textContent = `baseline: learning - ${baselineSamples.length}/18`;
-    badge.dataset.state = baselineSamples.length >= 8 ? "stale" : "offline";
+    badge.textContent = `baseline: learning - ${baselineSamples.length}/${BASELINE_TARGET_SAMPLES}`;
+    badge.dataset.state = baselineSamples.length >= BASELINE_TARGET_SAMPLES ? "stale" : "offline";
   }
 }
 
 function maybeLearnPersonalBaseline(signals) {
   if (!signals || signals.is_fallback) return;
-  const calm =
-    signals.signal_confidence >= 0.62
+  const signalReady =
+    signals.signal_confidence >= 0.55
     && signals.face_detected
-    && signals.shoulders_visible
-    && Number(signals.tilt_risk || 0) <= 35
-    && signals.jaw_tension !== "high"
-    && signals.shoulder_tension !== "high";
+    && signals.shoulders_visible;
+  const calm = calibrationWizard.active
+    ? signalReady
+    : signalReady
+      && Number(signals.tilt_risk || 0) <= 45
+      && Number(signals.jaw_score || 0) < 58
+      && Number(signals.posture_stress || 0) < 58;
   if (!calm) {
     updateBaselineBadge();
     return;
@@ -142,7 +186,7 @@ function maybeLearnPersonalBaseline(signals) {
     posture_stress: signals.posture_stress,
   });
   baselineSamples = baselineSamples.slice(-40);
-  if (baselineSamples.length < 18) {
+  if (baselineSamples.length < BASELINE_TARGET_SAMPLES) {
     updateBaselineBadge();
     return;
   }
@@ -171,6 +215,10 @@ function maybeLearnPersonalBaseline(signals) {
   };
   localStorage.setItem("kinaesthetic_baseline_v1", JSON.stringify(profile));
   updateBaselineBadge(profile);
+  if (calibrationWizard.active) {
+    calibrationWizard.active = false;
+    text("calibrationStatus", "Baseline saved. Calm posture is now the zero point.");
+  }
   if (Date.now() - lastBaselineSyncAt > 30000) {
     lastBaselineSyncAt = Date.now();
     postJSON("/api/baseline-profile", {
@@ -193,7 +241,7 @@ function startCalibrationWizard() {
   localStorage.removeItem("kinaesthetic_baseline_v1");
   lastCoachCommand = "";
   lastCoachAt = 0;
-  text("calibrationStatus", "Calibrating: sit naturally, keep face and shoulders visible for 10 seconds.");
+  text("calibrationStatus", "Calibrating: sit naturally for 10 seconds.");
   updateBaselineBadge(null);
 }
 
@@ -203,7 +251,7 @@ function resetCalibrationProfile() {
   calibrationPhases = {};
   localStorage.removeItem("kinaesthetic_baseline_v1");
   localStorage.removeItem("kinaesthetic_calibration_phases_v1");
-  text("calibrationStatus", "Calibration cleared. Run a new neutral baseline before judging tilt.");
+  text("calibrationStatus", "Baseline cleared. Calibrate again before judging tilt.");
   updateBaselineBadge(null);
 }
 
@@ -218,7 +266,7 @@ function updateCalibrationWizard() {
   }
   text(
     "calibrationStatus",
-    `Calibrating neutral baseline: ${Math.ceil(remaining)}s left - samples ${baselineSamples.length}/18.`,
+    `Calibrating: ${Math.ceil(remaining)}s left - samples ${baselineSamples.length}/${BASELINE_TARGET_SAMPLES}.`,
   );
 }
 
@@ -242,7 +290,8 @@ function evaluateSignalQuality(signals) {
   );
   const signalOk = !signals.is_fallback && confidence >= 0.55 && signals.face_detected && signals.shoulders_visible && score >= 65;
   const ok = signalOk;
-  return { ok, signalOk, score, issues, numbersAllowed: ok || demoLockActive || calibrationWizard.active };
+  const liveCamera = Boolean(cameraStream && !cameraErrorActive);
+  return { ok, signalOk, score, issues, numbersAllowed: ok || liveCamera || demoLockActive || calibrationWizard.active };
 }
 
 function applySignalQualityGate(signals) {
@@ -441,7 +490,8 @@ async function safeFetchJson(url, fallback = null) {
 async function refreshSystemHealth() {
   const health = await safeFetchJson("/api/system-health", null);
   if (!health) return;
-  systemNumbersVisible = Boolean(health.numbers_visible ?? true);
+  const localBrowserLive = Boolean((tickTimer || q("cameraPreview")?.srcObject) && !cameraErrorActive);
+  systemNumbersVisible = localBrowserLive ? true : Boolean(health.numbers_visible ?? true);
   if (cameraErrorActive && !tickTimer) {
     setRuntimeMode("offline");
     setGraphRuntime("offline");
@@ -449,11 +499,14 @@ async function refreshSystemHealth() {
     updateLlmHealthBadge(health.llm || {});
     return;
   }
-  if (health.mode && !tickTimer) {
+  if (localBrowserLive) {
+    setRuntimeMode("live");
+    setGraphRuntime("live");
+  } else if (health.mode && !tickTimer) {
     setRuntimeMode(health.mode);
     setGraphRuntime(health.mode);
   }
-  if (!systemNumbersVisible) {
+  if (!systemNumbersVisible && !localBrowserLive) {
     text("tiltValue", "-");
     text("readinessValue", "-");
     text("recoveryValue", "-");
@@ -1022,7 +1075,7 @@ async function ensureEngine() {
   const video = q("cameraPreview");
   const overlayCanvas = q("landmarkOverlay");
   const signalCanvas = q("browserCanvas");
-  const baselineProvider = () => readJSONSafe("kinaesthetic_baseline_v1", null);
+  const baselineProvider = () => browserCvBaselineProfile();
   text("statusMessage", "Loading MediaPipe Pose + Face in the browser...");
   try {
     cvEngine = await createBrowserCvEngine({ video, overlayCanvas, signalCanvas, baselineProvider });
@@ -1035,34 +1088,62 @@ async function ensureEngine() {
   return cvEngine;
 }
 
+function pickCoachCommand(group, seedValue = 0) {
+  const list = LOCAL_COACH_COMMANDS[group] || LOCAL_COACH_COMMANDS.stable;
+  const index = Math.abs(Math.round(Number(seedValue) || Date.now() / 1000)) % list.length;
+  return list[index];
+}
+
+function localCoachCommand(signals) {
+  const tilt = Number(signals.tilt_risk || 0);
+  const jaw = Number(signals.jaw_score || 0);
+  const posture = Number(signals.posture_stress || 0);
+  const face = Number(signals.facial_tension || 0);
+  const shoulders = Number(signals.shoulder_score || 0);
+  const now = Date.now();
+  if (tilt < 45 && jaw < 55 && posture < 55 && face < 55) {
+    const stableCommand = pickCoachCommand("stable", 1);
+    if (lastUiCommand && now - lastUiCommandAt < 12000) return lastUiCommand;
+    lastUiCommand = stableCommand;
+    lastUiCommandAt = now;
+    return stableCommand;
+  }
+  if (signals.recovery >= 72 && tilt < 48) {
+    const recoveryCommand = pickCoachCommand("recovery", 2);
+    if (lastUiCommand && now - lastUiCommandAt < 9000) return lastUiCommand;
+    lastUiCommand = recoveryCommand;
+    lastUiCommandAt = now;
+    return recoveryCommand;
+  }
+  const drivers = [
+    { key: "jaw", value: jaw },
+    { key: "shoulders", value: Math.max(shoulders, signals.shoulder_tension === "high" ? 80 : 0) },
+    { key: "posture", value: posture },
+    { key: "face", value: face },
+  ].sort((a, b) => b.value - a.value);
+  const driver = drivers[0]?.value >= 50 ? drivers[0].key : "posture";
+  const alertCommand = pickCoachCommand(driver, Math.round(drivers[0]?.value || 0));
+  if (lastUiCommand !== alertCommand && now - lastUiCommandAt < 7000) return lastUiCommand || alertCommand;
+  lastUiCommand = alertCommand;
+  lastUiCommandAt = now;
+  return alertCommand;
+}
+
 async function requestCoach(signals) {
   if (signals.quality_gate && !signals.quality_gate.numbersAllowed) {
     return signals.recommendation || "Fix camera signal first: face and shoulders must be visible.";
   }
-  if (Number(signals.tilt_risk || 0) < 65 && signals.jaw_tension !== "high" && signals.shoulder_tension !== "high") {
-    return "Signal is stable. Keep jaw soft, shoulders low, eyes wide.";
-  }
+  const localCommand = localCoachCommand(signals);
+  const risk = Number(signals.tilt_risk || 0);
+  if (risk < 65 && signals.jaw_tension !== "high" && signals.shoulder_tension !== "high") return localCommand;
   const now = Date.now();
   if (lastCoachCommand && now - lastCoachAt < COACH_COOLDOWN_MS) return lastCoachCommand;
   lastCoachAt = now;
-  try {
-    const data = await postJSON("/api/coach", { session_id: sessionId, tester_id: testerId, game, ...signals });
-    if (data.command) {
-      lastCoachCommand = data.command;
-      lastCoachProvider = data.provider || "cloud";
-      const cacheText = data.cached ? " - cache" : "";
-      text("coachStatus", `${lastCoachProvider}${cacheText} - ${data.latency_ms || "-"}ms`);
-      text("llmHealthRoute", `route: ${lastCoachProvider}${cacheText} - latency ${data.latency_ms || "-"}ms`);
-      return data.command;
-    }
-  } catch {
-    text("coachStatus", "local fallback");
-    text("llmHealthRoute", "route: local fallback");
-  }
-  if (signals.tilt_risk >= 72 || signals.jaw_tension === "high" || signals.shoulder_tension === "high") {
-    return "Soft jaw. Drop shoulders. One long exhale.";
-  }
-  return "Keep it steady. Relax jaw and shoulders.";
+  lastCoachCommand = localCommand;
+  lastCoachProvider = "local";
+  text("coachStatus", "local realtime");
+  text("llmHealthRoute", "route: local realtime - cloud optional");
+  return localCommand;
 }
 
 function normalizeSignals(raw) {
@@ -1075,6 +1156,13 @@ function normalizeSignals(raw) {
   const tilt = clamp((Number(raw.tilt_risk || 0)) * scale, 0, tiltCeiling);
   const readiness = clamp(Number(raw.readiness || (100 - tilt)) - (tilt - Number(raw.tilt_risk || 0)) * 0.35);
   const recovery = clamp(Number(raw.recovery || (100 - tilt * 0.7)) - (tilt - Number(raw.tilt_risk || 0)) * 0.2);
+  const jawScore = Number(raw.jaw_score || 0);
+  const shoulderScore = Number(raw.shoulder_score || 0);
+  const postureStress = Number(raw.posture_stress || 0);
+  const jawBand = tilt < 45 || jawScore < 58 ? "low" : jawScore >= 78 ? "high" : "medium";
+  const shoulderBand = tilt < 45 || Math.max(shoulderScore, postureStress) < 58
+    ? "low"
+    : Math.max(shoulderScore, postureStress) >= 78 ? "high" : "medium";
   return {
     mode: "browser",
     source: "browser_cv",
@@ -1085,8 +1173,8 @@ function normalizeSignals(raw) {
     tilt_risk: tilt,
     readiness,
     recovery,
-    jaw_tension: raw.jaw_tension || "low",
-    shoulder_tension: raw.shoulder_tension || "low",
+    jaw_tension: jawBand,
+    shoulder_tension: shoulderBand,
     signal_confidence: signalConfidence,
     face_confidence: Number(raw.face_confidence ?? (faceDetected ? signalConfidence : 0)),
     pose_confidence: Number(raw.pose_confidence ?? (shouldersVisible ? signalConfidence : 0)),
@@ -1096,7 +1184,7 @@ function normalizeSignals(raw) {
     shoulders_visible: shouldersVisible,
     fps: Number(raw.fps || 0),
     latency_ms: Number(raw.latency_ms || 0),
-    jaw_score: Number(raw.jaw_score || 0),
+    jaw_score: jawScore,
     brow_tension: Number(raw.brow_tension || 0),
     eye_tension: Number(raw.eye_tension || 0),
     eye_widen: Number(raw.eye_widen || 0),
@@ -1108,12 +1196,12 @@ function normalizeSignals(raw) {
     dominant_facial: String(raw.dominant_facial || "neutral"),
     dominant_facial_value: Number(raw.dominant_facial_value || 0),
     head_drift: Number(raw.head_drift || 0),
-    shoulder_score: Number(raw.shoulder_score || 0),
+    shoulder_score: shoulderScore,
     forward_head: Number(raw.forward_head || 0),
     shoulder_protraction: Number(raw.shoulder_protraction || 0),
     head_forward_z: Number(raw.head_forward_z || 0),
     torso_lean: Number(raw.torso_lean || 0),
-    posture_stress: Number(raw.posture_stress || 0),
+    posture_stress: postureStress,
     dominant_posture: String(raw.dominant_posture || "neutral"),
     dominant_posture_value: Number(raw.dominant_posture_value || 0),
     motion: Number(raw.motion || 0),
@@ -1145,7 +1233,6 @@ const POSTURE_CUE_LABELS = {
   shoulders_up: "shoulders up",
   forward_head: "head forward",
   rolled_shoulders: "rolled shoulders",
-  leaning_in: "leaning in",
   asymmetric: "asymmetry",
   torso_lean: "torso lean",
   off_center: "off center",
@@ -1156,7 +1243,9 @@ function renderSignals(signals) {
   lastSignals = signals;
   pushMiniSeries(signals);
   const quality = signals.quality_gate || evaluateSignalQuality(signals);
-  const numbersVisible = systemNumbersVisible && quality.numbersAllowed;
+  const liveBrowserSignal = Boolean(cameraStream && !cameraErrorActive && !signals.is_fallback);
+  if (liveBrowserSignal) systemNumbersVisible = true;
+  const numbersVisible = (systemNumbersVisible || liveBrowserSignal) && quality.numbersAllowed;
   renderQualityGate(quality);
   const tiltCard = q("tiltCard");
   if (tiltCard) tiltCard.dataset.band = numbersVisible ? band(signals.tilt_risk) : "low";
@@ -1176,24 +1265,28 @@ function renderSignals(signals) {
   // Facial cue chip: shows which micro-expression is firing now.
   const cueNode = q("facialCue");
   if (cueNode) {
-    const dominant = signals.dominant_facial || "neutral";
-    const strength = Number(signals.dominant_facial_value || 0);
+    const visibleTilt = Number(signals.tilt_risk || 0);
+    const rawStrength = Number(signals.dominant_facial_value || 0);
+    const dominant = visibleTilt >= 45 && rawStrength >= 38 ? (signals.dominant_facial || "neutral") : "neutral";
+    const strength = dominant === "neutral" ? 0 : rawStrength;
     const label = FACIAL_CUE_LABELS[dominant] || dominant;
     cueNode.dataset.cue = dominant;
-    cueNode.dataset.strength = strength >= 55 ? "high" : strength >= 30 ? "medium" : "low";
-    cueNode.textContent = strength >= 14 ? `${label} - ${Math.round(strength)}` : "face neutral";
+    cueNode.dataset.strength = strength >= 72 ? "high" : strength >= 48 ? "medium" : "low";
+    cueNode.textContent = strength >= 48 ? `${label} - ${Math.round(strength)}` : "face neutral";
   }
   const tensionNode = q("facialTensionValue");
   if (tensionNode) tensionNode.textContent = numbersVisible ? pct(signals.facial_tension) : "-";
   // Posture cue chip: same idea for the body, clear and readable.
   const postureCueNode = q("postureCue");
   if (postureCueNode) {
-    const dominant = signals.dominant_posture || "neutral";
-    const strength = Number(signals.dominant_posture_value || 0);
+    const visibleTilt = Number(signals.tilt_risk || 0);
+    const rawStrength = Number(signals.dominant_posture_value || 0);
+    const dominant = visibleTilt >= 45 && rawStrength >= 42 ? (signals.dominant_posture || "neutral") : "neutral";
+    const strength = dominant === "neutral" ? 0 : rawStrength;
     const label = POSTURE_CUE_LABELS[dominant] || dominant;
     postureCueNode.dataset.cue = dominant;
-    postureCueNode.dataset.strength = strength >= 55 ? "high" : strength >= 30 ? "medium" : "low";
-    postureCueNode.textContent = strength >= 14 ? `${label} - ${Math.round(strength)}` : "posture neutral";
+    postureCueNode.dataset.strength = strength >= 72 ? "high" : strength >= 52 ? "medium" : "low";
+    postureCueNode.textContent = strength >= 52 ? `${label} - ${Math.round(strength)}` : "posture neutral";
   }
   const postureTensionNode = q("postureTensionValue");
   if (postureTensionNode) postureTensionNode.textContent = numbersVisible ? pct(signals.posture_stress) : "-";
@@ -1214,7 +1307,7 @@ function renderSignals(signals) {
   text("statusMessage", human);
   const bar = q("tiltBar");
   if (bar) bar.style.width = numbersVisible ? `${clamp(signals.tilt_risk)}%` : "0%";
-  const runtimeMode = signals.is_fallback ? "demo" : quality.ok ? "live" : "stale";
+  const runtimeMode = signals.is_fallback ? "demo" : liveBrowserSignal ? "live" : quality.ok ? "live" : "stale";
   setRuntimeMode(runtimeMode);
   setGraphRuntime(runtimeMode);
   updatePerformanceCard();
@@ -1498,6 +1591,7 @@ async function startProductDemo() {
   // 220ms tick = about 4.5 fps face/pose updates for responsive coaching.
   // Keep the loop local: no raw video leaves the browser.
   perf.policy = "normal";
+  systemNumbersVisible = true;
   applyTickInterval(CV_CONFIG.live.tickMs);
   signalTimer = setInterval(sendSignals, CV_CONFIG.live.signalPushMs);
   heartbeatTimer = setInterval(sendHeartbeat, CV_CONFIG.live.heartbeatMs);

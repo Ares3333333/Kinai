@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -19,21 +20,22 @@ _health_cache: dict[str, Any] | None = None
 _health_cache_at = 0.0
 
 COACH_SYSTEM_PROMPT = (
-    "Ты киберспортивный performance coach с экспертизой в биомеханике. "
-    "Игрок близок к тильту или теряет готовность. "
-    "Дай ОДНУ резкую короткую команду до 10 слов, без медицинских утверждений, "
-    "без markdown и без объяснений. "
-    "Используй только безопасные действия: расслабь челюсть, опусти плечи, "
-    "сделай длинный выдох, расширь взгляд, верни фокус. "
-    "Не говори задерживать дыхание, сокращать дыхание или терпеть боль."
+    "You are an esports performance coach with biomechanics expertise. "
+    "The player is approaching tilt or losing readiness. "
+    "Return exactly ONE short command in English, maximum 10 words. "
+    "No markdown, no list, no explanation, no medical claims. "
+    "Use only safe actions: soften jaw, drop shoulders, exhale, widen gaze, reset posture, return focus. "
+    "Never mention holding breath, reducing breath, enduring pain, diagnosis, therapy, or treatment."
 )
 
 BLOCKED_COMMAND_FRAGMENTS = (
-    "сократ",
-    "задерж",
-    "не дыш",
-    "терпи боль",
-    "через боль",
+    "hold your breath",
+    "stop breathing",
+    "endure pain",
+    "through pain",
+    "diagnos",
+    "therapy",
+    "treatment",
 )
 
 
@@ -111,22 +113,27 @@ def _chat_completion(
         raise last_error
     latency_ms = round((time.perf_counter() - started) * 1000)
     data = json.loads(raw)
-    text = (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-    )
+    text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
     return str(text).strip(), latency_ms
 
 
 def sanitize_command(command: str, payload: dict[str, Any] | None = None) -> str:
     text = (command or "").strip().strip('"').strip()
+    text = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", text, flags=re.MULTILINE)
+    text = next((part.strip() for part in text.splitlines() if part.strip()), text)
+    for separator in (";", " / ", " then ", " and then "):
+        if separator in text.lower():
+            text = text.split(separator, 1)[0].strip()
+    parts = [part.strip() for part in re.split(r"[.!?]+", text) if part.strip()]
+    if parts:
+        text = parts[0]
+    text = text.strip(" -–—:;,.")
     lowered = text.lower()
     if not text or any(fragment in lowered for fragment in BLOCKED_COMMAND_FRAGMENTS):
         return gemini_coach.fallback_command(payload)
     words = text.split()
-    if len(words) > 12:
-        text = " ".join(words[:12]).rstrip(".,;:") + "."
+    if len(words) > 10:
+        text = " ".join(words[:10]).rstrip(".,;:")
     return text
 
 
@@ -147,7 +154,7 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": None,
-            "message": "GROQ_API_KEY не задан. Пробуем следующий provider.",
+            "message": "GROQ_API_KEY is not set. Trying the next provider.",
         }
         _health_cache = result
         _health_cache_at = now
@@ -170,7 +177,7 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": ok,
             "model": model,
             "latency_ms": latency_ms,
-            "message": "Groq отвечает." if ok else "Groq вернул пустой ответ.",
+            "message": "Groq is responding." if ok else "Groq returned an empty response.",
         }
     except TimeoutError:
         result = {
@@ -179,7 +186,7 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": round((time.perf_counter() - started) * 1000),
-            "message": "Groq не ответил за timeout.",
+            "message": "Groq timed out.",
         }
     except error.HTTPError as exc:
         result = {
@@ -188,7 +195,7 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": round((time.perf_counter() - started) * 1000),
-            "message": f"Groq HTTP {exc.code}. Проверьте ключ, модель и лимиты.",
+            "message": f"Groq HTTP {exc.code}. Check the key, model and limits.",
         }
     except error.URLError as exc:
         result = {
@@ -197,7 +204,7 @@ def health(timeout: float = 2.5) -> dict[str, Any]:
             "connected": False,
             "model": model,
             "latency_ms": round((time.perf_counter() - started) * 1000),
-            "message": f"Groq недоступен: {exc.reason}",
+            "message": f"Groq is unavailable: {exc.reason}",
         }
     except Exception as exc:
         result = {
@@ -224,13 +231,11 @@ def generate_coach_command(payload: dict[str, Any], timeout: float = 6.0) -> dic
             "command": "",
             "latency_ms": 0,
             "fallback": True,
-            "message": "GROQ_API_KEY не задан.",
+            "message": "GROQ_API_KEY is not set.",
         }
 
-    prompt = (
-        "Состояние игрока в JSON. Верни только одну короткую команду до 10 слов:\n"
-        + json.dumps(payload or {}, ensure_ascii=False)
-    )
+    prompt = "Player state JSON. Return only one short English command, max 10 words:\n"
+    prompt += json.dumps(payload or {}, ensure_ascii=False)
     started = time.perf_counter()
     try:
         text, latency_ms = _chat_completion(
@@ -261,5 +266,5 @@ def generate_coach_command(payload: dict[str, Any], timeout: float = 6.0) -> dic
             "command": "",
             "latency_ms": round((time.perf_counter() - started) * 1000),
             "fallback": True,
-            "message": f"Groq недоступен: {exc}",
+            "message": f"Groq is unavailable: {exc}",
         }

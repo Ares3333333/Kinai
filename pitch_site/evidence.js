@@ -129,13 +129,17 @@ function renderChart(timeline) {
   );
 }
 
-async function fetchJsonOrFallback(url, fallback) {
+async function fetchJsonOrFallback(url, fallback, timeoutMs = 2500) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { cache: "no-store" });
+    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
     if (!response.ok) return fallback;
     return await response.json();
   } catch {
     return fallback;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -235,7 +239,7 @@ function downloadJson(filename, payload) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function showExportSuccess(mode) {
@@ -262,7 +266,7 @@ async function exportPitchPackage() {
     button.disabled = true;
     button.textContent = "Exporting...";
   }
-  const backendExport = await fetchJsonOrFallback("/api/export-founder-deck", null);
+  const backendExport = await fetchJsonOrFallback("/api/export-founder-deck", null, 1200);
   const payload = buildEvidencePackage(backendExport?.export_dir ? "backend+browser" : "browser");
   payload.backend_export = backendExport || { ok: false, mode: "client_only" };
   downloadJson(`kinaesthetic_ai_evidence_${Date.now()}.json`, payload);

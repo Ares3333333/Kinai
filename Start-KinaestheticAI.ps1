@@ -10,7 +10,7 @@
     - frees TCP port 8501 if a stale Streamlit is still bound;
     - launches app.py via Streamlit in the background;
     - waits for http://localhost:8501 and opens the browser.
-  The site / play page (port 8502) is intentionally NOT started here —
+  The site / play page (port 8502) is intentionally NOT started here -
   the bottom desktop shortcut "Kinaesthetic AI - Site" handles that.
 #>
 $ErrorActionPreference = "Stop"
@@ -147,7 +147,7 @@ $process = Start-Process `
     -WindowStyle Hidden
 
 Write-LauncherLog "Started Streamlit PID $($process.Id)"
-Write-Host "Kinaesthetic AI · cockpit starting..." -ForegroundColor Green
+Write-Host "Kinaesthetic AI - cockpit starting..." -ForegroundColor Green
 Write-Host "Streamlit PID: $($process.Id)" -ForegroundColor DarkGray
 
 $ready = Wait-ForUrl -TargetUrl $Url

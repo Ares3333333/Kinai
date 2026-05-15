@@ -2,7 +2,7 @@
   tasksVersion: "0.10.21",
   poseModelUrl: "/models/pose_landmarker_lite.task",
   faceModelUrl: "/models/face_landmarker.task",
-  tiltSensitivityScaleDefault: 0.6,
+  tiltSensitivityScaleDefault: 1.0,
   live: {
     tickMs: 220,
     signalPushMs: 1100,
@@ -12,9 +12,9 @@
     retuneEveryTicks: 24,
   },
   profileScale: {
-    low: 0.78,
+    low: 0.72,
     normal: 1.0,
-    high: 1.2,
+    high: 1.18,
   },
   hysteresis: {
     jaw: { up: 70, down: 60, midUp: 40, midDown: 34 },

@@ -80,19 +80,35 @@ POSE_MODEL_PATH = MODELS_DIR / "pose_landmarker_lite.task"
 FACE_MODEL_PATH = MODELS_DIR / "face_landmarker.task"
 
 LLM_SYSTEM_PROMPT = (
-    "Ты киберспортивный коуч с экспертизой в биомеханике. "
-    "Игрок близок к тильту, зафиксирован зажим в плечевом поясе. "
-    "Дай ОДНУ резкую, короткую команду (до 10 слов), чтобы он сбросил "
-    "физическое напряжение прямо во время катки."
+    "You are an esports performance coach with biomechanics expertise. "
+    "The player is close to tilt and shoulder/jaw tension is detected. "
+    "Return exactly ONE short command, maximum 10 words. "
+    "No markdown, no list, no explanation, no medical claims."
 )
 
 COACH_MODE_PROMPTS = {
-    "Жесткий тренер": "Стиль: жесткий drill sergeant, команда короткая и резкая.",
-    "Спокойный коуч": "Стиль: спокойный zen coach, команда мягкая, но мгновенная.",
-    "Про-коуч": "Стиль: лаконичный pro esports coach, язык соревновательный.",
-    "Биомеханика": "Стиль: актерская биомеханика, но gamer-language, без лекции.",
+    "Drill coach": "Style: sharp drill-sergeant command.",
+    "Calm coach": "Style: calm, immediate, non-distracting command.",
+    "Pro coach": "Style: concise competitive esports language.",
+    "Biomechanics": "Style: body-based cue in gamer language, no lecture.",
 }
 
+
+def sanitize_coach_command(text: str) -> str:
+    """Keep every coach output to one short cue."""
+    value = str(text or "").strip()
+    if not value:
+        return "SOFTEN JAW. DROP SHOULDERS."
+    value = value.replace("\r", "\n")
+    lines = [line.strip(" \t-*0123456789.)") for line in value.split("\n") if line.strip()]
+    value = lines[0] if lines else value
+    for sep in (";", " then ", " and then ", " Next ", " Also "):
+        if sep in value:
+            value = value.split(sep, 1)[0].strip()
+    words = value.split()
+    if len(words) > 10:
+        value = " ".join(words[:10])
+    return value.strip(" ,.!?:;-").upper() or "SOFTEN JAW. DROP SHOULDERS."
 
 @dataclass
 class SimpleLandmark:
@@ -150,7 +166,7 @@ class VoiceTelemetry:
         self.lock = threading.Lock()
         self.stream = None
         self.started = False
-        self.status = "Voice layer выключен"
+        self.status = "Voice layer off"
         self.voice_events = deque(maxlen=90)
         self.metrics = {
             "voice_rms": 0.0,
@@ -164,7 +180,7 @@ class VoiceTelemetry:
         if self.started:
             return
         if sd is None:
-            self.status = "sounddevice не установлен: pip install sounddevice"
+            self.status = "sounddevice is not installed: pip install sounddevice"
             self.metrics["voice_status"] = self.status
             return
         try:
@@ -176,9 +192,9 @@ class VoiceTelemetry:
             )
             self.stream.start()
             self.started = True
-            self.status = "Voice layer активен"
+            self.status = "Voice layer active"
         except Exception as exc:
-            self.status = f"Микрофон недоступен: {exc}"
+            self.status = f"Microphone unavailable: {exc}"
         self.metrics["voice_status"] = self.status
 
     def stop(self) -> None:
@@ -190,7 +206,7 @@ class VoiceTelemetry:
                 pass
         self.stream = None
         self.started = False
-        self.status = "Voice layer выключен"
+        self.status = "Voice layer off"
         self.metrics["voice_status"] = self.status
 
     def _callback(self, indata, frames, timestamp, status) -> None:
@@ -230,7 +246,7 @@ class InputTelemetry:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.started = False
-        self.status = "Mouse/keyboard telemetry выключена"
+        self.status = "Mouse/keyboard telemetry off"
         self.key_events = deque(maxlen=500)
         self.click_events = deque(maxlen=500)
         self.move_events = deque(maxlen=800)
@@ -242,7 +258,7 @@ class InputTelemetry:
         if self.started:
             return
         if pynput_keyboard is None or pynput_mouse is None:
-            self.status = "pynput не установлен: pip install pynput"
+            self.status = "pynput is not installed: pip install pynput"
             return
         try:
             self.keyboard_listener = pynput_keyboard.Listener(on_press=self._on_key_press)
@@ -253,9 +269,9 @@ class InputTelemetry:
             self.keyboard_listener.start()
             self.mouse_listener.start()
             self.started = True
-            self.status = "Mouse/keyboard telemetry активна"
+            self.status = "Mouse/keyboard telemetry active"
         except Exception as exc:
-            self.status = f"Input telemetry недоступна: {exc}"
+            self.status = f"Input telemetry unavailable: {exc}"
 
     def stop(self) -> None:
         for listener in (self.keyboard_listener, self.mouse_listener):
@@ -267,7 +283,7 @@ class InputTelemetry:
         self.keyboard_listener = None
         self.mouse_listener = None
         self.started = False
-        self.status = "Mouse/keyboard telemetry выключена"
+        self.status = "Mouse/keyboard telemetry off"
 
     def _on_key_press(self, key) -> None:
         with self.lock:
@@ -345,7 +361,7 @@ def init_session_state() -> None:
         "last_recovery_update_at": 0.0,
         "last_autopilot_at": 0.0,
         "autopilot_enabled": True,
-        "autopilot_status": "Autopilot ожидает сигнал",
+        "autopilot_status": "Autopilot waiting for signal",
         "autopilot_cue": "",
         "recovery_active": False,
         "recovery_started_at": 0.0,
@@ -372,12 +388,12 @@ def init_session_state() -> None:
         "effective_camera_width": 640,
         "effective_camera_height": 360,
         "effective_camera_fps": 15,
-        "coach_mode": "Жесткий тренер",
+        "coach_mode": "Drill coach",
         "tilt_prediction": {
             "seconds": None,
             "confidence": 0.0,
             "slope_per_sec": 0.0,
-            "label": "собираю сигнал",
+            "label": "collecting signal",
         },
         "somatic_fingerprint": None,
         "post_match_report": None,
@@ -392,16 +408,16 @@ def init_session_state() -> None:
         "jaw_clenched_baseline": None,
         "jaw_calibration_samples": [],
         "jaw_calibration_phase": "",
-        "face_status": "Face Mesh ожидает кадр",
-        "pipeline_status": "Ожидаю запуск камеры",
+        "face_status": "Face Mesh waiting for frame",
+        "pipeline_status": "Waiting for camera start",
         "auto_dataset_enabled": True,
         "dataset_samples_written": 0,
         "somatic_model": None,
-        "somatic_model_status": "Proto-модель еще не обучена",
+        "somatic_model_status": "Proto-model is not trained yet",
         "somatic_model_prediction": None,
-        "openface_status": "OpenFace не проверен",
+        "openface_status": "OpenFace not checked",
         "openface_executable": "",
-        "emotion_backend": "Realtime MediaPipe: 478 точек + 52 blendshapes",
+        "emotion_backend": "Realtime MediaPipe: 478 points + 52 blendshapes",
         "show_face_points_overlay": True,
         "guided_ui": True,
         "enable_voice_layer": False,
@@ -409,15 +425,15 @@ def init_session_state() -> None:
         "voice_metrics": {},
         "input_metrics": {},
         "user_profile_id": "default_player",
-        "profile_status": "Персональный профиль не загружен",
+        "profile_status": "Personal profile not loaded",
         "somatic_twin_memory": None,
-        "somatic_twin_status": "Somatic Twin Memory еще не обновлялась",
+        "somatic_twin_status": "Somatic Twin Memory has not updated yet",
         "next_best_intervention": None,
         "ui_mode": "Pitch cockpit",
         "somatic_search_query": "jaw lock after death",
         "somatic_search_results": [],
         "copilot_question": "",
-        "copilot_answer": "Задай вопрос по сессии: почему был breakdown, что делать перед clutch, какая команда сработала.",
+        "copilot_answer": "Ask a session question: why did breakdown happen, what should I do before clutch, which command worked.",
         "performance_profile": {
             "fps": 0.0,
             "capture_ms": 0.0,
@@ -468,8 +484,8 @@ def to_simple_landmark(landmark) -> SimpleLandmark:
         x=safe_float(getattr(landmark, "x", 0.0), 0.0),
         y=safe_float(getattr(landmark, "y", 0.0), 0.0),
         z=safe_float(getattr(landmark, "z", 0.0), 0.0),
-        # У FaceLandmarker visibility/presence часто равны None. Для Face Mesh
-        # это нормально: считаем такие точки валидными, чтобы не ломать пайплайн.
+        # Legacy implementation note cleaned for English demo.
+        # Legacy implementation note cleaned for English demo.
         visibility=safe_float(getattr(landmark, "visibility", 1.0), 1.0),
         presence=safe_float(getattr(landmark, "presence", 1.0), 1.0),
     )
@@ -496,10 +512,10 @@ def smooth_landmarks(
         dy_px = (current_landmark.y - previous_landmark.y) * frame_height
         movement_px = float(np.hypot(dx_px, dy_px))
 
-        # Стабилизация CV-точек:
-        # - dead_zone_px отрезает микродрожание MediaPipe и автоэкспозиции камеры.
-        # - alpha управляет скоростью реакции: ниже alpha = премиальнее и стабильнее,
-        #   выше alpha = быстрее реакция на реальное движение.
+        # Legacy implementation note cleaned for English demo.
+        # Legacy implementation note cleaned for English demo.
+        # Legacy implementation note cleaned for English demo.
+        # Legacy implementation note cleaned for English demo.
         if movement_px <= dead_zone_px:
             x, y, z = previous_landmark.x, previous_landmark.y, previous_landmark.z
         else:
@@ -522,12 +538,7 @@ def smooth_landmarks(
 
 
 def extract_face_blendshapes(face_results) -> dict[str, float]:
-    """Достаем MediaPipe Face Blendshapes в простой словарь.
-
-    Для челюсти нам особенно полезны jawOpen, mouthClose и mouthPressLeft/Right.
-    На слабом компьютере это все равно дешевле и устойчивее, чем пытаться
-    вручную угадывать напряжение только по нескольким точкам губ.
-    """
+    """English documentation cleaned for investor demo."""
     if not getattr(face_results, "face_blendshapes", None):
         return {}
     if not face_results.face_blendshapes:
@@ -563,18 +574,7 @@ def estimate_emotional_state(
     face_blendshapes: Optional[dict[str, float]],
     jaw_clench_score: float,
 ) -> dict:
-    """Интерпретатор эмоций v0 для MVP.
-
-    Важно: мы не говорим "человек точно чувствует X". В Consumer AI это рискованно.
-    Мы говорим "по лицевым микросигналам сейчас похожий паттерн": фокус,
-    фрустрация, усталость, удивление/стресс, позитивная разрядка или контроль.
-
-    Почему так:
-    - MediaPipe Face Landmarker дает до 478 точек лица и набор blendshape-
-      коэффициентов, похожих на ARKit: browDown, eyeSquint, mouthPress и т.д.
-    - Для MVP этого достаточно, чтобы построить интерпретируемые эвристики.
-    - Позже эти же признаки можно сохранить как датасет и обучить свою модель.
-    """
+    """English documentation cleaned for investor demo."""
     blendshapes = face_blendshapes or {}
 
     def bs(name: str) -> float:
@@ -595,9 +595,9 @@ def estimate_emotional_state(
     jaw_open = bs("jawOpen")
     nose_sneer = max(bs("noseSneerLeft"), bs("noseSneerRight"))
 
-    # Дополнительный landmark-сигнал глаз: если глазные щели резко меньше,
-    # игрок часто "впивается" в монитор или устает. Это не отдельный диагноз,
-    # а поправка к focus/fatigue.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     eye_landmark_focus = 0.0
     if face_landmarks and len(face_landmarks) > 386:
         left_eye_gap = abs(face_landmarks[159].y - face_landmarks[145].y)
@@ -606,9 +606,9 @@ def estimate_emotional_state(
         eye_landmark_focus = clamp((0.020 - avg_eye_gap) / 0.014 * 100)
 
     # Per-channel scores (0-100). Scaled so a single strong micro-expression
-    # alone (hard frown / clenched lips / wide eyes) registers at 50-70 —
+    # Legacy implementation note cleaned for English demo.
     # otherwise downstream arousal stays invisible. Real ARKit blendshapes
-    # peak around 0.6–0.85 so we boost coefficients accordingly.
+    # Legacy implementation note cleaned for English demo.
     brow_tension_score = clamp(brow_down * 0.95 + brow_inner_up * 0.45 + nose_sneer * 0.25)
     eye_focus_score = clamp(eye_squint * 0.50 + eye_landmark_focus * 0.30 + (100 - eye_blink) * 0.20)
     mouth_tension_score = clamp(
@@ -650,7 +650,7 @@ def estimate_emotional_state(
     # MAX-based arousal: dominant single channel (brow / mouth / eye_wide /
     # jaw / sneer) drives the score, with a small additive bonus for
     # multi-channel co-firing. Cascaded sums diluted single signals to ~7
-    # arousal even on a hard frown — the user's "stupid" complaint.
+    # Legacy implementation note cleaned for English demo.
     facial_channels = (
         ("brow", brow_tension_score, 0.95),
         ("mouth", mouth_tension_score, 0.95),
@@ -679,12 +679,12 @@ def estimate_emotional_state(
     emotional_valence_score = clamp(50 + positive_release * 0.38 - frustration * 0.30 - fatigue * 0.18)
 
     scores = {
-        "фокус": focus,
-        "фрустрация": frustration,
-        "усталость": fatigue,
-        "удивление/стресс": surprise_stress,
-        "позитивная разрядка": positive_release,
-        "спокойный контроль": calm_control,
+        "focus": focus,
+        "frustration": frustration,
+        "fatigue": fatigue,
+        "surprise_stress": surprise_stress,
+        "release": positive_release,
+        "calm_control": calm_control,
     }
     ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     primary, top_score = ranked[0]
@@ -692,7 +692,7 @@ def estimate_emotional_state(
     confidence = clamp(42 + (top_score - second_score) * 0.9 + top_score * 0.18)
 
     if not face_landmarks or not blendshapes:
-        primary = "лицо не найдено"
+        primary = "no_face"
         confidence = 0.0
 
     return {
@@ -722,17 +722,7 @@ def calculate_biomechanics(
     jaw_clench_ratio_threshold: float,
     baseline_profile: Optional[dict] = None,
 ) -> BiomechanicsMetrics:
-    """Главная математика MVP: перевод landmark-точек в биомеханические сигналы.
-
-    Что можно подкручивать:
-    - shoulder_raise_ratio_threshold: чем выше значение, тем легче система считает,
-      что плечи подняты к голове.
-    - shoulder_raise_sensitivity: ширина зоны реакции. Меньше значение = резче триггер.
-    - asymmetry_threshold_percent: допустимый перекос плеч в процентах от ширины плеч.
-    - jaw_clench_ratio_threshold: суррогат челюстного зажима через закрытость рта.
-
-    Важно: это MVP-эвристики для гипотезы и питча, не медицинская диагностика.
-    """
+    """English documentation cleaned for investor demo."""
     nose = pose_landmarks[vision.PoseLandmark.NOSE.value]
     left_shoulder = pose_landmarks[vision.PoseLandmark.LEFT_SHOULDER.value]
     right_shoulder = pose_landmarks[vision.PoseLandmark.RIGHT_SHOULDER.value]
@@ -749,11 +739,11 @@ def calculate_biomechanics(
     nose_to_shoulders_px = max(mid_shoulder_y - nose_y, 1.0)
     nose_to_shoulders_ratio = nose_to_shoulders_px / shoulder_width_px
 
-    # ТРИГГЕР 1: плечевой блок.
-    # Если плечи поднимаются к носу, расстояние "нос -> линия плеч" уменьшается.
-    # Сначала используем абсолютный порог, но после калибровки переключаемся
-    # на персональный baseline игрока. Это важнее для продукта: у разных людей
-    # нормальная посадка, шея и камера будут разными.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     if baseline_profile:
         baseline_ratio = baseline_profile.get(
             "nose_to_shoulders_ratio",
@@ -775,9 +765,9 @@ def calculate_biomechanics(
             * 100
         )
 
-    # ТРИГГЕР 2: асимметрия корпуса.
-    # В MediaPipe координата Y растет вниз. Если одно плечо выше другого,
-    # разница Y становится заметной. Делим на ширину плеч и получаем процент.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     shoulder_delta_y = left_y - right_y
     shoulder_asymmetry_percent = abs(shoulder_delta_y) / shoulder_width_px * 100
     baseline_asymmetry = (
@@ -797,18 +787,18 @@ def calculate_biomechanics(
         * 100
     )
 
-    # Угол линии плеч. Это удобная "инженерная ручка" для будущих триггеров:
-    # 0 градусов = плечи горизонтальны, 5-10 градусов = видимый перекос.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     shoulder_slope_degrees = float(
         np.degrees(np.arctan2(shoulder_delta_y, max(abs(right_x - left_x), 1.0)))
     )
 
-    # ТРИГГЕР 3: челюстной зажим, если Face Mesh доступен.
-    # Важно: настоящий clench по веб-камере не измеряется напрямую. Поэтому
-    # используем гибрид:
-    # 1) landmark proxy: рот стал закрытее относительно baseline;
-    # 2) blendshape proxy: jawOpen низкий + mouthClose/mouthPress высокие.
-    # Это гораздо лучше, чем старый вариант "только расстояние между губами".
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     jaw_open_ratio = None
     jaw_blendshape_score = 0.0
     jaw_clench_score = 0.0
@@ -830,10 +820,10 @@ def calculate_biomechanics(
                 * 100
             )
         else:
-            # Без baseline закрытый рот не должен сам по себе считаться зажимом.
-            # Поэтому landmark proxy ограничен 45 баллами и не может один
-            # запустить jaw_clench-триггер. Для уверенного сигнала нужны
-            # blendshapes давления губ/сжатия.
+            # Legacy implementation note cleaned for English demo.
+            # Legacy implementation note cleaned for English demo.
+            # Legacy implementation note cleaned for English demo.
+            # Legacy implementation note cleaned for English demo.
             landmark_jaw_score = clamp(
                 (jaw_clench_ratio_threshold - jaw_open_ratio)
                 / max(jaw_clench_ratio_threshold, 0.001)
@@ -883,9 +873,9 @@ def calculate_biomechanics(
         jaw_clench_score=jaw_clench_score,
     )
 
-    # ТРИГГЕР 4: forward head posture — голова жмётся к монитору
-    # (классическая поза геймера). Замеряем как сжатие nose_to_shoulders
-    # ratio относительно baseline или абсолютного якоря 1.85.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     forward_head_baseline = (
         baseline_profile.get("nose_to_shoulders_ratio", 1.85)
         if baseline_profile else 1.85
@@ -896,9 +886,9 @@ def calculate_biomechanics(
         * 100
     )
 
-    # ТРИГГЕР 5: shoulder protraction — плечи свернулись внутрь, видимая
-    # ширина между ними сжалась. Нужен персональный baseline; без него
-    # используем мягкий якорь 0.30 от ширины кадра (frame-relative).
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     baseline_shoulder_width = (
         baseline_profile.get("shoulder_width_ratio")
         if baseline_profile else None
@@ -913,9 +903,9 @@ def calculate_biomechanics(
     else:
         shoulder_protraction_score = 0.0
 
-    # MAX-based posture composite — единый dominant сигнал осанки,
-    # симметрично с лицом. Один канал может вытянуть весь posture_stress
-    # до 60+, но multi-channel collapse даёт небольшой бонус.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     posture_channels = (
         ("shoulders_up", shoulder_elevation_score, 0.95),
         ("forward_head", forward_head_score, 0.92),
@@ -995,19 +985,14 @@ def calculate_biomechanics(
 
 
 def update_tilt_meter(metrics: BiomechanicsMetrics) -> float:
-    """Накопительная модель Tilt Meter.
-
-    Плечевой блок не должен срабатывать от одного кадра. Поэтому плечи должны
-    быть подняты примерно 3 секунды: shoulder_elevated_seconds выступает как
-    "аккумулятор". Плохие кадры не сбрасывают его в ноль, а мягко разряжают.
-    """
+    """English documentation cleaned for investor demo."""
     now = time.time()
     last_update = st.session_state.last_tilt_update_at or now
     dt = min(max(now - last_update, 0.0), 0.5)
     st.session_state.last_tilt_update_at = now
 
     # Use posture_stress_score (forward head + rolled shoulders +
-    # elevation + asymmetry) as the dominant posture channel — much
+    # Legacy implementation note cleaned for English demo.
     # stronger than elevation alone. Shoulder-asymmetry stays as a
     # separate channel so a one-sided lean still counts independently.
     posture_channel = max(
@@ -1045,7 +1030,7 @@ def start_calibration() -> None:
     st.session_state.calibration_samples = []
     st.session_state.baseline_profile = None
     reset_runtime_state(keep_alert=False)
-    st.session_state.pipeline_status = "Калибровка нейтральной позы"
+    st.session_state.pipeline_status = "Calibrating neutral posture"
 
 
 def update_calibration(metrics: BiomechanicsMetrics) -> None:
@@ -1064,7 +1049,7 @@ def update_calibration(metrics: BiomechanicsMetrics) -> None:
     elapsed = time.time() - st.session_state.calibration_started_at
     if elapsed < st.session_state.calibration_duration:
         st.session_state.pipeline_status = (
-            f"Калибровка baseline: {elapsed:.1f}s / "
+            f"Baseline calibration: {elapsed:.1f}s / "
             f"{st.session_state.calibration_duration:.0f}s"
         )
         return
@@ -1092,16 +1077,16 @@ def update_calibration(metrics: BiomechanicsMetrics) -> None:
     st.session_state.is_calibrating = False
     st.session_state.calibration_samples = []
     reset_runtime_state(keep_alert=False)
-    st.session_state.pipeline_status = "Baseline готов: персональная модель активна"
+    st.session_state.pipeline_status = "Baseline ready: personal model active"
 
 
 def start_jaw_calibration_phase(phase: str) -> None:
     st.session_state.jaw_calibration_phase = phase
     st.session_state.jaw_calibration_samples = []
     st.session_state.pipeline_status = (
-        "Калибровка челюсти: расслабь"
+        "Jaw calibration: relax"
         if phase == "relaxed"
-        else "Калибровка челюсти: сожми"
+        else "Jaw calibration: clench"
     )
 
 
@@ -1135,10 +1120,10 @@ def update_jaw_calibration(metrics: BiomechanicsMetrics) -> None:
     }
     if phase == "relaxed":
         st.session_state.jaw_relaxed_baseline = profile
-        st.session_state.pipeline_status = "Челюсть: relaxed baseline готов"
+        st.session_state.pipeline_status = "Jaw: relaxed baseline ready"
     else:
         st.session_state.jaw_clenched_baseline = profile
-        st.session_state.pipeline_status = "Челюсть: clenched baseline готов"
+        st.session_state.pipeline_status = "Jaw: clenched baseline ready"
     st.session_state.jaw_calibration_phase = ""
     st.session_state.jaw_calibration_samples = []
 
@@ -1237,7 +1222,7 @@ def coach_command_effectiveness() -> dict:
     ]
     if not alert_indices:
         return {
-            "status": "нет команд",
+            "status": "no alert yet",
             "best_command": "n/a",
             "effectiveness": 0.0,
             "tilt_drop": 0.0,
@@ -1265,7 +1250,7 @@ def coach_command_effectiveness() -> dict:
         )
         score = clamp(tilt_drop * 0.72 + arousal_drop * 0.18 + jaw_drop * 0.10)
         candidate = {
-            "status": "измерено",
+            "status": "measured",
             "best_command": before.get("alert", "n/a"),
             "effectiveness": round(score, 1),
             "tilt_drop": round(tilt_drop, 1),
@@ -1276,7 +1261,7 @@ def coach_command_effectiveness() -> dict:
         if best is None or candidate["effectiveness"] > best["effectiveness"]:
             best = candidate
     return best or {
-        "status": "команда есть, окно восстановления еще собирается",
+        "status": ',',
         "best_command": series[alert_indices[-1]].get("alert", "n/a"),
         "effectiveness": 0.0,
         "tilt_drop": 0.0,
@@ -1285,16 +1270,11 @@ def coach_command_effectiveness() -> dict:
 
 
 def build_causal_intervention_graph() -> dict:
-    """Causal layer: событие -> тело -> эмоция -> команда -> recovery.
-
-    Это не строгий клинический causal inference. Для MVP это explainable
-    counterfactual: по предкомандному наклону Tilt Meter строим прогноз
-    "без вмешательства" и сравниваем с фактическим восстановлением.
-    """
+    """English documentation cleaned for investor demo."""
     series = list(st.session_state.session_series)
     if len(series) < 12:
         return {
-            "status": "нужно больше сигнала",
+            "status": "collecting signal",
             "causal_confidence": 0.0,
             "tilt_prevented": 0.0,
             "counterfactual_peak": 0.0,
@@ -1320,7 +1300,7 @@ def build_causal_intervention_graph() -> dict:
     trigger_event = (
         series[trigger_event_index].get("event", "n/a")
         if trigger_event_index is not None
-        else "не размечено"
+        else "no_event"
     )
 
     pre_start = max(intervention_index - 12, 0)
@@ -1353,11 +1333,11 @@ def build_causal_intervention_graph() -> dict:
     actual_drop = max(start_tilt - actual_after, 0.0)
 
     pressure_scores = {
-        "челюсть": float(series[peak_index].get("jaw", 0.0)),
-        "плечи": float(series[peak_index].get("shoulders", 0.0)),
-        "эмоциональное возбуждение": float(series[peak_index].get("arousal", 0.0)),
-        "мышь/клавиатура": float(series[peak_index].get("input", 0.0)),
-        "голос": float(series[peak_index].get("voice", 0.0)),
+        "jaw": float(series[peak_index].get("jaw", 0.0)),
+        "shoulders": float(series[peak_index].get("shoulders", 0.0)),
+        "arousal": float(series[peak_index].get("arousal", 0.0)),
+        "input": float(series[peak_index].get("input", 0.0)),
+        "voice": float(series[peak_index].get("voice", 0.0)),
     }
     body_driver = max(pressure_scores, key=pressure_scores.get)
     emotion_driver = series[peak_index].get("emotion", "auto-label")
@@ -1409,49 +1389,49 @@ def generate_recovery_protocol(report: Optional[dict] = None) -> dict:
     report = report or st.session_state.post_match_report or build_post_match_report()
     pressure = report.get("what_broke_state", "n/a")
     protocols = {
-        "челюсть": {
+        "jaw": {
             "name": "Jaw Unlock 20",
-            "cue": "РАЗОЖМИ ЧЕЛЮСТЬ. ЯЗЫК ВНИЗ. ВЫДОХ.",
+            "cue": "Unclench teeth. Tongue down. Exhale.",
             "steps": [
-                "Разомкнуть зубы на 2 мм",
-                "Язык положить за нижние зубы",
-                "Один длинный выдох через нос",
+                "Separate teeth for 2 seconds",
+                "Drop tongue to the floor of the mouth",
+                "Exhale slowly through the nose",
             ],
         },
-        "плечи": {
+        "shoulders": {
             "name": "Shoulder Drop Reset",
-            "cue": "ПЛЕЧИ ВНИЗ. ЛОПАТКИ ТЯЖЕЛЫЕ. ДЫШИ.",
+            "cue": "Drop shoulders. Keep chest wide.",
             "steps": [
-                "Отвести плечи от ушей",
-                "Слегка вернуть спину в кресло",
-                "Выдох длиннее вдоха",
+                "Let shoulders fall heavy",
+                "Widen chest without leaning in",
+                "Hold soft posture for the next fight",
             ],
         },
-        "мышь/клавиатура": {
+        "input": {
             "name": "Hands Slowdown",
-            "cue": "СТОП СПАМ. ОДИН МЕДЛЕННЫЙ КЛИК.",
+            "cue": "Slow hands. One clean action.",
             "steps": [
-                "На 2 секунды отпустить лишние клавиши",
-                "Снизить частоту кликов",
-                "Вернуть указательный палец в нейтраль",
+                "Relax grip for 2 seconds",
+                "Reset mouse hand",
+                "Return to one deliberate input at a time",
             ],
         },
-        "голос": {
+        "voice": {
             "name": "Voice Downshift",
-            "cue": "НИЖЕ ГОЛОС. КОРОЧЕ КОММЫ.",
+            "cue": "Lower voice. Short comms only.",
             "steps": [
-                "Опустить тон на одну ступень",
-                "Говорить только фактами",
-                "Не объяснять ошибку во время раунда",
+                "Lower speaking volume",
+                "Use short calls only",
+                "Pause before the next comm",
             ],
         },
-        "эмоциональное возбуждение": {
+        "face": {
             "name": "Face Neutral Reset",
-            "cue": "ЛИЦО В НЕЙТРАЛЬ. ВЗГЛЯД ШИРЕ.",
+            "cue": "Soften face. Widen attention.",
             "steps": [
-                "Расслабить лоб",
-                "Расширить периферическое зрение",
-                "Один спокойный вдох перед next fight",
+                "Release brow and mouth pressure",
+                "Use peripheral vision",
+                'next fight',
             ],
         },
     }
@@ -1459,11 +1439,11 @@ def generate_recovery_protocol(report: Optional[dict] = None) -> dict:
         pressure,
         {
             "name": "Baseline Stabilizer",
-            "cue": "СБРОСЬ НАПРЯЖЕНИЕ. ВЕРНИ НЕЙТРАЛЬ.",
+            "cue": "Exhale. Reset jaw and shoulders.",
             "steps": [
-                "Плечи вниз",
-                "Челюсть мягко",
-                "Один длинный выдох",
+                "Slow exhale",
+                "Drop shoulders",
+                "Return to neutral posture",
             ],
         },
     )
@@ -1527,7 +1507,7 @@ Games optimize engagement. Kinaesthetic AI optimizes the human.
 - Recovery score: {report.get('recovery_score', 0)}%
 - Winning command: {command.get('best_command', 'n/a')}
 - Command effectiveness: {command.get('effectiveness', 0)}%
-- Protocol: {protocol['name']} — {protocol['cue']}
+- Protocol: {protocol['name']}     {protocol['cue']}
 - Next best intervention: {next_best.get('cue', 'n/a')}
 
 ## Causal Intervention
@@ -1567,13 +1547,7 @@ Games optimize engagement. Kinaesthetic AI optimizes the human.
 
 
 def generate_investor_demo_session() -> None:
-    """Готовит идеальную демо-сессию для питча без зависимости от камеры.
-
-    Сценарий показывает главную историю продукта:
-    спокойный baseline -> смерть в игре -> jaw lock/input chaos -> coach cue ->
-    recovery. Это нужно, чтобы демо не развалилось из-за света, камеры или
-    слабого ноутбука в самый важный момент.
-    """
+    """English documentation cleaned for investor demo."""
     reset_runtime_state()
     st.session_state.running = False
     close_camera()
@@ -1581,7 +1555,7 @@ def generate_investor_demo_session() -> None:
     st.session_state.session_series.clear()
     st.session_state.game_events.clear()
     st.session_state.somatic_logs.clear()
-    st.session_state.coach_alert = "ОПУСТИ ПЛЕЧИ. РАЗОЖМИ ЧЕЛЮСТЬ. ВЫДОХ."
+    st.session_state.coach_alert = "UNLOCK JAW. DROP SHOULDERS."
     st.session_state.recovery_score = 84.0
     st.session_state.recovery_seconds = 11.8
     st.session_state.recovery_active = False
@@ -1604,7 +1578,7 @@ def generate_investor_demo_session() -> None:
             shoulders = 18
             input_chaos = 12
             voice = 10
-            emotion = "спокойный контроль"
+            emotion = "calm_control"
             alert = ""
             triggers = []
         elif index < 42:
@@ -1615,7 +1589,7 @@ def generate_investor_demo_session() -> None:
             shoulders = 30 + spike * 52
             input_chaos = 24 + spike * 66
             voice = 18 + spike * 48
-            emotion = "фрустрация"
+            emotion = "frustration_rising"
             alert = ""
             triggers = ["jaw_clench", "emotional_tension", "raised_shoulders"]
         elif index < 56:
@@ -1625,8 +1599,8 @@ def generate_investor_demo_session() -> None:
             shoulders = 80 - (index - 42) * 1.6
             input_chaos = 84 - (index - 42) * 3.0
             voice = 62 - (index - 42) * 2.0
-            emotion = "фрустрация"
-            alert = "ОПУСТИ ПЛЕЧИ. РАЗОЖМИ ЧЕЛЮСТЬ. ВЫДОХ."
+            emotion = "high_pressure"
+            alert = "UNLOCK JAW. DROP SHOULDERS."
             triggers = ["jaw_clench", "emotional_tension"]
         else:
             recovery_phase = (index - 56) / 34
@@ -1636,8 +1610,8 @@ def generate_investor_demo_session() -> None:
             shoulders = 52 - recovery_phase * 30
             input_chaos = 36 - recovery_phase * 20
             voice = 28 - recovery_phase * 12
-            emotion = "соревновательный фокус" if index < 72 else "спокойный контроль"
-            alert = "ОПУСТИ ПЛЕЧИ. РАЗОЖМИ ЧЕЛЮСТЬ. ВЫДОХ." if index < 66 else ""
+            emotion = "recovery"
+            alert = "BREATHE OUT. KEEP SHOULDERS LOW." if index < 66 else ""
             triggers = ["recovery"] if index < 72 else []
 
         event = scenario_events.get(index, "")
@@ -1647,7 +1621,7 @@ def generate_investor_demo_session() -> None:
             "tilt": round(clamp(tilt), 2),
             "raw": round(clamp(arousal * 0.48 + jaw * 0.24 + shoulders * 0.18 + input_chaos * 0.10), 2),
             "emotion": emotion,
-            "emotion_confidence": 82.0 if emotion != "спокойный контроль" else 76.0,
+            "emotion_confidence": 82.0 if emotion != "calm_control" else 76.0,
             "arousal": round(clamp(arousal), 2),
             "valence": round(clamp(62 - arousal * 0.32 + phase * 18), 2),
             "jaw": round(clamp(jaw), 2),
@@ -1690,16 +1664,11 @@ def generate_investor_demo_session() -> None:
     }
     build_somatic_fingerprint()
     build_post_match_report()
-    st.session_state.pipeline_status = "Investor Demo Mode: сценарий recovery готов"
+    st.session_state.pipeline_status = 'Investor Demo Mode: recovery'
 
 
 def update_tilt_prediction() -> dict:
-    """Простая MVP-модель предсказания тильта.
-
-    Смотрим на скорость роста Tilt Meter за последние секунды. Если траектория
-    продолжится, оцениваем время до alert_threshold. Это не ML, но для питча
-    демонстрирует будущий predictive layer: "мы видим breakdown заранее".
-    """
+    """English documentation cleaned for investor demo."""
     series = list(st.session_state.session_series)[-24:]
     prediction = {
         "seconds": None,
@@ -1727,7 +1696,7 @@ def update_tilt_prediction() -> dict:
             {
                 "confidence": clamp(abs(slope) * 18, 0, 30),
                 "slope_per_sec": slope,
-                "label": "стабильно или восстановление",
+                "label": "stable",
             }
         )
     else:
@@ -1741,7 +1710,7 @@ def update_tilt_prediction() -> dict:
                 "seconds": seconds_to_threshold,
                 "confidence": confidence,
                 "slope_per_sec": slope,
-                "label": "прогнозируется всплеск тильта",
+                "label": "rising",
             }
         )
 
@@ -1754,9 +1723,9 @@ def build_somatic_fingerprint() -> dict:
     metrics = st.session_state.current_metrics
     if not series and not metrics:
         return {
-            "archetype": "Сигнала пока нет",
+            "archetype": "Waiting for signal",
             "dominant_pattern": "waiting_for_pose",
-            "recovery_speed": "неизвестно",
+            "recovery_speed": "unknown",
             "readiness": 0,
         }
 
@@ -1779,19 +1748,19 @@ def build_somatic_fingerprint() -> dict:
             dominant_pattern = "shoulder_asymmetry"
 
     archetypes = {
-        "raised_shoulders": "Зажим плеч",
-        "shoulder_asymmetry": "Наклон к монитору",
-        "jaw_clench": "Зажим челюсти",
-        "emotional_tension": "Эмоциональный перегрев",
+        "raised_shoulders": "Shoulder Loader",
+        "shoulder_asymmetry": "Asymmetric Lean",
+        "jaw_clench": "Jaw Locker",
+        "emotional_tension": "Face Tension Spike",
     }
     tilts = [float(row["tilt"]) for row in series[-90:]]
     avg_tilt = float(np.mean(tilts)) if tilts else float(st.session_state.tilt_score)
     peak_tilt = float(np.max(tilts)) if tilts else float(st.session_state.tilt_score)
-    recovery_speed = "быстрое"
+    recovery_speed = "stable"
     if len(tilts) >= 8 and tilts[-1] > tilts[0]:
-        recovery_speed = "напряжение растет"
+        recovery_speed = "tilt rising"
     elif peak_tilt > 70 and tilts and tilts[-1] > 45:
-        recovery_speed = "медленное"
+        recovery_speed = "needs reset"
 
     readiness = clamp(100 - avg_tilt * 0.72 - max(peak_tilt - 75, 0) * 0.55)
     fingerprint = {
@@ -1812,11 +1781,11 @@ def build_post_match_report() -> dict:
     events = list(st.session_state.game_events)
     if not series:
         report = {
-            "headline": "Данных матча пока нет",
+            "headline": "No session yet",
             "peak_tilt": 0,
             "avg_tilt": 0,
             "event_count": len(events),
-            "insight": "Запусти сканирование, чтобы собрать отчет.",
+            "insight": ',',
             "recovery_note": "n/a",
             "breakdown_moment": "n/a",
             "dominant_emotion": "n/a",
@@ -1824,7 +1793,7 @@ def build_post_match_report() -> dict:
             "what_broke_state": "n/a",
             "winning_command": "n/a",
             "recovery_score": 0,
-            "coach_recommendation": "Сначала соберем 60-90 секунд сигнала.",
+            "coach_recommendation": '60-90',
         }
         st.session_state.post_match_report = report
         return report
@@ -1843,28 +1812,28 @@ def build_post_match_report() -> dict:
     fingerprint = build_somatic_fingerprint()
     recovery_score = float(st.session_state.recovery_score)
     if st.session_state.recovery_seconds is not None:
-        recovery_note = f"Recovery завершен за {st.session_state.recovery_seconds}s."
+        recovery_note = f"Recovery             {st.session_state.recovery_seconds}s."
     elif st.session_state.recovery_active:
-        recovery_note = "Recovery сейчас измеряется: игрок сбрасывает напряжение после команды."
+        recovery_note = 'Recovery :'
     elif len(tilts) >= 10 and tilts[-1] > avg_tilt:
-        recovery_note = "Восстановление не завершено; напряжение еще держится."
+        recovery_note = ';'
     else:
-        recovery_note = "Восстановление выглядит быстрым."
+        recovery_note = "Recovery proof appears after a live alert and reset."
 
     if high_tilt_frames:
         insight = (
             f"High tilt persisted for {high_tilt_frames} samples; "
-            f"главный паттерн: {fingerprint['archetype']}."
+            f"dominant body pattern: {fingerprint['archetype']}."
         )
     elif events:
         insight = (
-            f"Зафиксировано игровых событий: {len(events)}; критического тильта нет."
+            f"Game events marked: {len(events)}; tracking body-state response."
         )
     else:
-        insight = "Чистая сессия: без игровых событий и критического тильта."
+        insight = ':'
 
     if peak_tilt >= 85:
-        recovery_note = "Критический всплеск: нужен reset-ритуал после смерти."
+        recovery_note = 'reset'
 
     emotion_counts = {}
     for row in series:
@@ -1873,16 +1842,16 @@ def build_post_match_report() -> dict:
     dominant_emotion = max(emotion_counts, key=emotion_counts.get) if emotion_counts else "n/a"
 
     event_rows = [row for row in series if row.get("event")]
-    trigger_event = "нет явного события"
+    trigger_event = "no_event"
     if event_rows:
         trigger_event = max(event_rows, key=lambda row: row.get("tilt", 0)).get("event", "n/a")
 
     pressure_scores = {
-        "челюсть": float(np.mean(jaws[-30:])) if len(jaws) else 0.0,
-        "плечи": float(np.mean(shoulders[-30:])) if len(shoulders) else 0.0,
-        "эмоциональное возбуждение": float(np.mean(arousals[-30:])) if len(arousals) else 0.0,
-        "мышь/клавиатура": float(np.mean(inputs[-30:])) if len(inputs) else 0.0,
-        "голос": float(np.mean(voices[-30:])) if len(voices) else 0.0,
+        "jaw": float(np.mean(jaws[-30:])) if len(jaws) else 0.0,
+        "shoulders": float(np.mean(shoulders[-30:])) if len(shoulders) else 0.0,
+        "arousal": float(np.mean(arousals[-30:])) if len(arousals) else 0.0,
+        "input": float(np.mean(inputs[-30:])) if len(inputs) else 0.0,
+        "voice": float(np.mean(voices[-30:])) if len(voices) else 0.0,
     }
     what_broke_state = max(pressure_scores, key=pressure_scores.get)
     winning_command = "n/a"
@@ -1890,27 +1859,27 @@ def build_post_match_report() -> dict:
     if alert_rows:
         winning_command = alert_rows[-1].get("alert", "n/a")
 
-    coach_recommendation = "Сохраняй baseline: система не видит устойчивого breakdown."
-    if what_broke_state == "челюсть":
-        coach_recommendation = "Главная точка работы: jaw release drill сразу после смерти или токсичного чата."
-    elif what_broke_state == "плечи":
-        coach_recommendation = "Главная точка работы: плечи вниз, длинный выдох, вернуть спину в кресло."
-    elif what_broke_state == "мышь/клавиатура":
-        coach_recommendation = "Главная точка работы: остановить spam actions, один slow-click reset перед следующим раундом."
-    elif what_broke_state == "голос":
-        coach_recommendation = "Главная точка работы: голосовой reset, ниже тембр, короче коммы."
-    elif what_broke_state == "эмоциональное возбуждение":
-        coach_recommendation = "Главная точка работы: сброс лица и взгляда, 2 секунды нейтрали перед next fight."
+    coach_recommendation = 'baseline calibration'
+    if what_broke_state == "jaw":
+        coach_recommendation = "Jaw unlock: tongue down, exhale, loosen teeth."
+    elif what_broke_state == "shoulders":
+        coach_recommendation = "Shoulder reset: drop shoulders, widen chest, slow breath."
+    elif what_broke_state == '/':
+        coach_recommendation = 'mouse/keyboard'
+    elif what_broke_state == "arousal":
+        coach_recommendation = "Reset intensity before the next fight."
+    elif what_broke_state == "voice":
+        coach_recommendation = "Lower comms volume and shorten callouts."
 
     report = {
-        "headline": "Соматический отчет после матча",
+        "headline": "Session proof ready",
         "peak_tilt": round(peak_tilt, 1),
         "avg_tilt": round(avg_tilt, 1),
         "event_count": len(events),
         "insight": insight,
         "recovery_note": recovery_note,
         "fingerprint": fingerprint,
-        "breakdown_moment": f"{peak_row.get('t', 'n/a')} · tilt {peak_tilt:.0f}%",
+        "breakdown_moment": f"{peak_row.get('t', 'n/a')}    tilt {peak_tilt:.0f}%",
         "dominant_emotion": dominant_emotion,
         "trigger_event": trigger_event,
         "what_broke_state": what_broke_state,
@@ -1924,12 +1893,7 @@ def build_post_match_report() -> dict:
 
 
 def ingest_external_game_events() -> None:
-    """MVP bridge для Overwolf/Twitch/Discord.
-
-    Будущий bridge может писать JSONL в data/external_game_events.jsonl:
-    {"event": "death", "source": "overwolf", "timestamp": "..."}
-    Streamlit подхватит новые строки и превратит их в game event tags.
-    """
+    """English documentation cleaned for investor demo."""
     if not EXTERNAL_EVENTS_INBOX_PATH.exists():
         return
 
@@ -2032,13 +1996,13 @@ def maybe_generate_coach_alert(metrics: BiomechanicsMetrics) -> None:
 
     config = get_llm_config()
     if config is None:
-        st.session_state.coach_alert = "ДОБАВЬ API KEY ДЛЯ АЛЕРТА"
+        st.session_state.coach_alert = "ADD API KEY FOR ALERTS"
         st.session_state.last_llm_call_at = now
         return
 
     future = st.session_state.get("llm_future")
     if future is not None and not future.done():
-        st.session_state.coach_alert = "LLM ГОТОВИТ КОМАНДУ..."
+        st.session_state.coach_alert = "LLM IS PREPARING ONE COMMAND..."
         return
 
     payload = {
@@ -2067,7 +2031,7 @@ def maybe_generate_coach_alert(metrics: BiomechanicsMetrics) -> None:
         st.session_state.coach_mode,
     )
     st.session_state.llm_pending_started_at = now
-    st.session_state.coach_alert = "LLM ГОТОВИТ КОМАНДУ..."
+    st.session_state.coach_alert = "LLM IS PREPARING ONE COMMAND..."
     start_recovery_window(metrics)
     st.session_state.last_llm_call_at = now
     alerts.commit_alert(
@@ -2131,7 +2095,7 @@ def cached_llm_health() -> dict:
             "connected": False,
             "latency_ms": None,
             "model": get_llm_model(),
-            "message": "Product intelligence module недоступен. Local fallback coach активен.",
+            "message": 'Product intelligence module . Local fallback coach',
         }
     return product_intelligence.llm_health(timeout=1.2)
 
@@ -2145,7 +2109,7 @@ def generate_llm_alert(config: dict, payload: dict, coach_mode: str) -> str:
             },
             timeout=float(config.get("timeout", 8)),
         )
-        return str(result.get("command") or gemini_coach.fallback_command(payload)).strip().upper()
+        return sanitize_coach_command(result.get("command") or gemini_coach.fallback_command(payload))
 
     if config.get("provider") == "gemini":
         result = gemini_coach.generate_coach_command(
@@ -2155,7 +2119,7 @@ def generate_llm_alert(config: dict, payload: dict, coach_mode: str) -> str:
             },
             timeout=float(config.get("timeout", 8)),
         )
-        return str(result.get("command") or gemini_coach.fallback_command(payload)).strip().upper()
+        return sanitize_coach_command(result.get("command") or gemini_coach.fallback_command(payload))
 
     client = OpenAI(
         api_key=config["api_key"],
@@ -2182,7 +2146,7 @@ def generate_llm_alert(config: dict, payload: dict, coach_mode: str) -> str:
         max_tokens=40,
     )
     command = response.choices[0].message.content or ""
-    return command.strip().upper()
+    return sanitize_coach_command(command)
 
 
 def poll_llm_future() -> None:
@@ -2190,7 +2154,7 @@ def poll_llm_future() -> None:
     if future is None or not future.done():
         return
     try:
-        st.session_state.coach_alert = future.result()
+        st.session_state.coach_alert = sanitize_coach_command(future.result())
     except Exception as exc:
         st.session_state.coach_alert = f"LLM ERROR: {exc}"
     st.session_state.llm_future = None
@@ -2229,71 +2193,62 @@ def update_recovery_score(metrics: Optional[BiomechanicsMetrics]) -> None:
 
 
 def build_local_coach_alert(metrics: BiomechanicsMetrics) -> str:
-    """Мгновенный локальный алерт без cloud LLM.
-
-    Это снимает главный лаг на слабом компьютере: UI не ждет локальную LLM.
-    LLM можно включить отдельно, когда нужна красивая вариативная формулировка.
-    """
+    """Instant local alert without waiting for cloud LLM."""
     if "jaw_clench" in metrics.triggers:
-        return "РАЗОЖМИ ЧЕЛЮСТЬ. ВЫДОХ."
+        return "UNCLENCH JAW. EXHALE."
     if "emotional_tension" in metrics.triggers:
-        if metrics.emotion_primary == "фрустрация":
-            return "СБРОСЬ ЛИЦО. ОДИН ЧИСТЫЙ ВДОХ."
-        if metrics.emotion_primary == "усталость":
-            return "МОРГНИ. РАССЛАБЬ ВЗГЛЯД. ВЕРНИ ФОКУС."
-        return "ВЕРНИ ЛИЦО В НЕЙТРАЛЬ. ИГРАЙ ДАЛЬШЕ."
+        if metrics.emotion_primary in {"frustration", "anger"}:
+            return "RESET FACE. ONE CLEAN BREATH."
+        if metrics.emotion_primary in {"fatigue", "tired"}:
+            return "BLINK. SOFTEN EYES. REFOCUS."
+        return "RETURN FACE TO NEUTRAL. KEEP PLAYING."
     if "raised_shoulders" in metrics.triggers:
-        return "ОПУСТИ ПЛЕЧИ. ДЫШИ."
+        return "DROP SHOULDERS. BREATHE."
     if "shoulder_asymmetry" in metrics.triggers:
-        return "ВЫРОВНЯЙ КОРПУС. НАЗАД В ФОКУС."
-    return "СБРОСЬ НАПРЯЖЕНИЕ. СЛЕДУЮЩИЙ ФАЙТ."
+        return "CENTER YOUR BODY. BACK TO FOCUS."
+    return "RESET TENSION. NEXT FIGHT."
 
 
 def build_auto_affective_label(metrics: BiomechanicsMetrics) -> dict:
-    """Автоматическая метка состояния без self-report.
-
-    Это ключ к нашей базе: мы сохраняем не "человек сказал, что злится", а
-    машинную гипотезу, ее confidence и evidence. Позже такие метки можно
-    перепроверять экспертно, но продукт уже сам интерпретирует состояние.
-    """
+    """English documentation cleaned for investor demo."""
     evidence = []
     if metrics.jaw_clench_score >= 55:
-        evidence.append("сжатая челюсть")
+        evidence.append("jaw_clench")
     if metrics.brow_tension_score >= 48:
-        evidence.append("напряжение бровей")
+        evidence.append("brow_tension")
     if metrics.eye_focus_score >= 62:
-        evidence.append("узкий/жесткий фокус глаз")
+        evidence.append("eye_focus")
     if metrics.mouth_tension_score >= 48:
-        evidence.append("напряжение рта")
+        evidence.append("mouth_pressure")
     if metrics.shoulder_elevation_score >= 45:
-        evidence.append("плечи подняты")
+        evidence.append("raised_shoulders")
     if metrics.shoulder_asymmetry_score >= 35:
-        evidence.append("асимметрия корпуса")
+        evidence.append("shoulder_asymmetry")
     voice_metrics = st.session_state.get("voice_metrics") or {}
     input_metrics = st.session_state.get("input_metrics") or {}
     if voice_metrics.get("voice_tension_score", 0) >= 58:
-        evidence.append("напряженный голос")
+        evidence.append("voice_tension")
     if voice_metrics.get("speech_rate_proxy", 0) >= 58:
-        evidence.append("ускоренная речь")
+        evidence.append("speech_rate")
     if input_metrics.get("input_chaos_score", 0) >= 58:
-        evidence.append("хаотичный mouse/keyboard паттерн")
+        evidence.append('mouse/keyboard')
 
     if input_metrics.get("input_chaos_score", 0) >= 70 and metrics.emotional_arousal_score >= 45:
-        label = "поведенческий тильт / импульсивность"
+        label = "input_stress"
     elif voice_metrics.get("voice_tension_score", 0) >= 70 and metrics.emotional_arousal_score >= 45:
-        label = "голосовое напряжение / зажим"
-    elif metrics.emotion_primary == "фрустрация" and metrics.emotional_arousal_score >= 55:
-        label = "фрустрация / риск тильта"
-    elif metrics.emotion_primary == "усталость":
-        label = "усталость / падение ресурса"
-    elif metrics.emotion_primary == "удивление/стресс":
-        label = "острый стресс / реакция на событие"
-    elif metrics.emotion_primary == "фокус" and metrics.emotional_arousal_score < 62:
-        label = "соревновательный фокус"
-    elif metrics.emotion_primary == "позитивная разрядка":
-        label = "разрядка / позитив"
-    elif metrics.emotion_primary == "спокойный контроль":
-        label = "спокойный контроль"
+        label = "voice_stress"
+    elif metrics.emotion_primary == "frustration" and metrics.emotional_arousal_score >= 55:
+        label = "frustration"
+    elif metrics.emotion_primary == "fatigue":
+        label = "fatigue"
+    elif metrics.emotion_primary == "surprise_stress":
+        label = "stress_spike"
+    elif metrics.emotion_primary == "focus" and metrics.emotional_arousal_score < 62:
+        label = "focused_control"
+    elif metrics.emotion_primary == "release":
+        label = "recovery_release"
+    elif metrics.emotion_primary == "calm_control":
+        label = "calm_control"
     else:
         label = metrics.emotion_primary
 
@@ -2302,9 +2257,9 @@ def build_auto_affective_label(metrics: BiomechanicsMetrics) -> dict:
         + st.session_state.face_tracking_quality * 0.22
         + min(len(evidence), 4) * 7.5
     )
-    if metrics.emotion_primary == "лицо не найдено":
+    if metrics.emotion_primary == "no_face":
         confidence = 0.0
-        evidence = ["нет устойчивого лица"]
+        evidence = ["no_face"]
 
     return {
         "label": label,
@@ -2397,14 +2352,9 @@ def append_affective_dataset_sample(metrics: BiomechanicsMetrics) -> None:
 
 
 def train_somatic_proto_model() -> dict:
-    """Первая self-supervised proto-модель.
-
-    Она обучается на auto-label данных: для каждого состояния строим центроид
-    признаков. Это не финальный ML, но уже демонстрирует инвестору главную
-    механику: база превращается в модель, а модель начинает предсказывать.
-    """
+    """English documentation cleaned for investor demo."""
     if not AFFECTIVE_DATASET_PATH.exists():
-        status = "Нет датасета: сначала запусти сканирование и собери auto-label samples"
+        status = ': auto-label samples'
         st.session_state.somatic_model_status = status
         return {"ok": False, "status": status}
 
@@ -2423,7 +2373,7 @@ def train_somatic_proto_model() -> dict:
             groups.setdefault(label, []).append(features)
 
     if len(groups) < 2:
-        status = "Нужно минимум 2 разных auto-label состояния для proto-модели"
+        status = '2 auto-label proto-'
         st.session_state.somatic_model_status = status
         return {"ok": False, "status": status}
 
@@ -2450,7 +2400,7 @@ def train_somatic_proto_model() -> dict:
         encoding="utf-8",
     )
     st.session_state.somatic_model = model
-    status = f"Proto-модель обучена: {len(centroids)} состояний, {sum(counts.values())} samples"
+    status = f"Proto-model trained: {len(centroids)} labels, {sum(counts.values())} samples"
     st.session_state.somatic_model_status = status
     return {"ok": True, "status": status}
 
@@ -2466,7 +2416,7 @@ def load_somatic_proto_model() -> Optional[dict]:
         return None
     st.session_state.somatic_model = model
     st.session_state.somatic_model_status = (
-        f"Proto-модель загружена: {len(model.get('centroids', {}))} состояний"
+        f"Proto-model loaded: {len(model.get('centroids', {}))} labels"
     )
     return model
 
@@ -2499,11 +2449,7 @@ def predict_somatic_proto_state(metrics: BiomechanicsMetrics) -> Optional[dict]:
 
 
 def check_openface_bridge() -> dict:
-    """Проверяем, готов ли внешний AU-анализатор OpenFace.
-
-    OpenFace тяжелее MediaPipe, поэтому в MVP мы не запускаем его на каждом
-    кадре. Правильная роль: offline-verifier для датасета и Action Units.
-    """
+    """English documentation cleaned for investor demo."""
     candidates = [
         st.session_state.get("openface_executable", "").strip(),
         str(APP_ROOT / "OpenFace" / "FeatureExtraction.exe"),
@@ -2513,7 +2459,7 @@ def check_openface_bridge() -> dict:
     ]
     executable = next((path for path in candidates if path and Path(path).exists()), "")
     if executable:
-        status = f"OpenFace bridge готов: {executable}"
+        status = f"OpenFace bridge      : {executable}"
         result = {
             "ready": True,
             "executable": executable,
@@ -2522,8 +2468,8 @@ def check_openface_bridge() -> dict:
         }
     else:
         status = (
-            "OpenFace не найден. Для AU-verifier положи FeatureExtraction.exe "
-            "в C:\\Users\\user\\Desktop\\MeirX\\OpenFace\\"
+            'OpenFace . AU-verifier FeatureExtraction.exe'
+            'C:\\Users\\user\\Desktop\\MeirX\\OpenFace\\'
         )
         result = {
             "ready": False,
@@ -2536,21 +2482,16 @@ def check_openface_bridge() -> dict:
 
 
 def research_emotion_backend_status() -> dict:
-    """Показывает, какие research-grade emotion backends доступны локально.
-
-    Для realtime demo основа — MediaPipe. DeepFace/AffectNet-подход лучше
-    держать как отдельный исследовательский слой: он тяжелый, часто требует
-    TensorFlow/другой Python, но полезен для offline validation датасета.
-    """
+    """English documentation cleaned for investor demo."""
     deepface_available = importlib.util.find_spec("deepface") is not None
     return {
         "realtime": "MediaPipe Face Landmarker: 478 face landmarks + 52 blendshapes",
         "au_verifier": st.session_state.openface_status,
         "deepface_available": deepface_available,
         "research_status": (
-            "DeepFace доступен локально"
+            'DeepFace'
             if deepface_available
-            else "DeepFace/AffectNet слой не установлен: оставлен как offline research backend"
+            else 'DeepFace/AffectNet : offline research backend'
         ),
     }
 
@@ -2577,36 +2518,36 @@ def save_personal_profile() -> None:
         "jaw_relaxed_baseline": st.session_state.jaw_relaxed_baseline,
         "jaw_clenched_baseline": st.session_state.jaw_clenched_baseline,
         "somatic_model_path": str(SOMATIC_MODEL_PATH),
-        "notes": "Персональный baseline: поза, лицо, челюсть и recovery-динамика.",
+        "notes": 'baseline calibration',
     }
     profile_path().write_text(
         json.dumps(profile, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    st.session_state.profile_status = f"Профиль сохранен: {profile_path()}"
+    st.session_state.profile_status = f"Profile saved: {profile_path()}"
 
 
 def load_personal_profile() -> None:
     path = profile_path()
     if not path.exists():
-        st.session_state.profile_status = f"Профиль не найден: {path}"
+        st.session_state.profile_status = f"Profile not found: {path}"
         return
     try:
         profile = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        st.session_state.profile_status = "Профиль поврежден: JSON не читается"
+        st.session_state.profile_status = ': JSON'
         return
     st.session_state.baseline_profile = profile.get("baseline_profile")
     st.session_state.jaw_relaxed_baseline = profile.get("jaw_relaxed_baseline")
     st.session_state.jaw_clenched_baseline = profile.get("jaw_clenched_baseline")
-    st.session_state.profile_status = f"Профиль загружен: {path}"
+    st.session_state.profile_status = f"Profile loaded: {path}"
 
 
 def build_somatic_signature() -> dict:
     series = list(st.session_state.session_series)
     if not series:
         return {
-            "status": "нет сессии",
+            "status": "collecting signal",
             "signature_hash": "pending",
             "dominant_lock": "n/a",
             "stress_entry_speed": 0.0,
@@ -2690,7 +2631,7 @@ def load_somatic_twin_memory() -> dict:
         try:
             memory = json.loads(path.read_text(encoding="utf-8"))
             st.session_state.somatic_twin_memory = memory
-            st.session_state.somatic_twin_status = f"Twin memory загружена: {path}"
+            st.session_state.somatic_twin_status = f"Twin memory saved: {path}"
             return memory
         except json.JSONDecodeError:
             pass
@@ -2768,7 +2709,7 @@ def update_somatic_twin_memory() -> dict:
         encoding="utf-8",
     )
     st.session_state.somatic_twin_memory = memory
-    st.session_state.somatic_twin_status = f"Twin memory обновлена: {somatic_twin_path()}"
+    st.session_state.somatic_twin_status = f"Twin memory saved: {somatic_twin_path()}"
     st.session_state.next_best_intervention = recommend_next_best_intervention(memory)
     return memory
 
@@ -2796,7 +2737,7 @@ def recommend_next_best_intervention(memory: Optional[dict] = None) -> dict:
             "cue": best_cue,
             "expected_effectiveness": round(max(best_score, 0.0), 1),
             "driver": driver,
-            "reason": "выбрано по истории команд этого профиля",
+            "reason": "matched personal cue history",
         }
     else:
         recommendation = {
@@ -2804,14 +2745,14 @@ def recommend_next_best_intervention(memory: Optional[dict] = None) -> dict:
             "cue": protocol["cue"],
             "expected_effectiveness": 48.0,
             "driver": driver,
-            "reason": "персональной памяти пока мало, используем лучший протокол для текущего драйвера",
+            "reason": ',',
         }
     st.session_state.next_best_intervention = recommendation
     return recommendation
 
 
 def somatic_tokens_from_row(row: dict) -> list[str]:
-    """Дискретизирует тело в токены — первый шаг к Somatic Language Model."""
+    """English documentation cleaned for investor demo."""
     tokens = []
     tilt = float(row.get("tilt", 0.0))
     jaw = float(row.get("jaw", 0.0))
@@ -2855,15 +2796,15 @@ def somatic_tokens_from_row(row: dict) -> list[str]:
         tokens.append("RECOVERY_REGAIN")
     elif recovery >= 35:
         tokens.append("RECOVERY_START")
-    if "фрустра" in emotion:
+    if "frustration" in emotion:
         tokens.append("EMO_FRUSTRATION")
-    elif "устал" in emotion:
+    elif "fatigue" in emotion:
         tokens.append("EMO_FATIGUE")
-    elif "фокус" in emotion:
+    elif "focus" in emotion:
         tokens.append("EMO_FOCUS")
-    elif "контроль" in emotion:
+    elif "calm_control" in emotion or "control" in emotion:
         tokens.append("EMO_CONTROL")
-    elif "стресс" in emotion:
+    elif "stress" in emotion:
         tokens.append("EMO_STRESS")
     if not tokens:
         tokens.append("NEUTRAL_SCAN")
@@ -2871,15 +2812,11 @@ def somatic_tokens_from_row(row: dict) -> list[str]:
 
 
 def build_somatic_language_engine() -> dict:
-    """Переводит сессию в язык тела: токены, грамматика, next-token forecast.
-
-    Это прототип будущего Somatic Foundation Model: не классификация эмоций,
-    а последовательность body-language tokens, из которой можно учить модель.
-    """
+    """English documentation cleaned for investor demo."""
     series = list(st.session_state.session_series)
     if len(series) < 3:
         return {
-            "status": "нужно больше сэмплов",
+            "status": "collecting signal",
             "alphabet_size": 0,
             "entropy": 0.0,
             "sentence": "WAIT_FOR_SIGNAL",
@@ -3004,13 +2941,13 @@ def build_universal_readiness_score(metrics: Optional[BiomechanicsMetrics] = Non
     recovery = clamp(float(st.session_state.recovery_score) if st.session_state.recovery_score else float(row.get("recovery", 0.0)))
     readiness = clamp(focus * 0.28 + control * 0.28 + recovery * 0.18 + (100 - stress) * 0.18 + (100 - fatigue) * 0.08)
     if readiness >= 76:
-        label = "готов"
+        label = "ready"
     elif readiness >= 52:
-        label = "нестабильно, но играбельно"
+        label = "watch"
     elif readiness >= 32:
-        label = "нужен reset"
+        label = 'reset'
     else:
-        label = "высокий риск"
+        label = "high risk"
     return {
         "readiness": round(readiness, 1),
         "focus": round(focus, 1),
@@ -3103,7 +3040,7 @@ def body_state_embedding_stats(metrics: Optional[BiomechanicsMetrics] = None) ->
             "count": 0,
             "model": "kinaesthetic_local_feature_embedding_v0",
             "similar": [],
-            "last_phrase": "пока нет записанных состояний",
+            "last_phrase": "n/a",
         }
     count = 0
     last_record = {}
@@ -3124,7 +3061,7 @@ def body_state_embedding_stats(metrics: Optional[BiomechanicsMetrics] = None) ->
 
 def maybe_run_somatic_autopilot(metrics: BiomechanicsMetrics) -> None:
     if not st.session_state.autopilot_enabled:
-        st.session_state.autopilot_status = "Autopilot выключен"
+        st.session_state.autopilot_status = 'Autopilot'
         return
     now = time.time()
     if now - st.session_state.last_autopilot_at < 12:
@@ -3141,22 +3078,22 @@ def maybe_run_somatic_autopilot(metrics: BiomechanicsMetrics) -> None:
     token_risk = any(token in risky_next for token in ("JAW_LOCK", "TILT_RED", "AROUSAL_SPIKE", "INPUT_SPAM", "SHOULDER_GUARD"))
     readiness_risk = readiness["readiness"] < 54 and metrics.tilt_score < st.session_state.alert_threshold
     if not (imminent or token_risk or readiness_risk):
-        st.session_state.autopilot_status = "Autopilot наблюдает: intervention пока не нужен"
+        st.session_state.autopilot_status = 'Autopilot : intervention'
         return
     report = build_post_match_report()
     protocol = generate_recovery_protocol(report)
     cue = protocol["cue"]
     if metrics.jaw_clench_score >= 42 or "JAW" in risky_next:
-        cue = "MICRO-RESET: ЧЕЛЮСТЬ МЯГКО. ВЫДОХ."
+        cue = 'reset'
     elif metrics.shoulder_elevation_score >= 42 or "SHOULDER" in risky_next:
-        cue = "MICRO-RESET: ПЛЕЧИ ВНИЗ. СПИНА НАЗАД."
+        cue = 'reset'
     elif float((st.session_state.get("input_metrics") or {}).get("input_chaos_score", 0.0)) >= 42 or "INPUT" in risky_next:
-        cue = "MICRO-RESET: СТОП СПАМ. ОДИН МЕДЛЕННЫЙ КЛИК."
+        cue = 'reset'
     st.session_state.autopilot_cue = cue
     st.session_state.coach_alert = cue
     st.session_state.last_autopilot_at = now
     st.session_state.autopilot_status = (
-        f"Autopilot сработал до тильта: readiness {readiness['readiness']:.0f}%, next {risky_next}"
+        f"Autopilot cue armed: readiness {readiness['readiness']:.0f}%, next token {risky_next}"
     )
     start_recovery_window(metrics)
 
@@ -3166,14 +3103,14 @@ def search_somatic_moments(query: str, limit: int = 8) -> list[dict]:
     if not query:
         return []
     terms = {
-        "jaw": ["jaw", "челюст", "зажим"],
-        "death": ["death", "смерт"],
-        "clutch": ["clutch", "клатч"],
-        "toxic": ["toxic", "токс"],
-        "recovery": ["recovery", "восстанов"],
-        "tilt": ["tilt", "тильт"],
-        "voice": ["voice", "голос"],
-        "input": ["input", "клик", "spam", "спам"],
+        "jaw": ["jaw", "clench", "teeth"],
+        "death": ["death", "round loss"],
+        "clutch": ["clutch", "pressure"],
+        "toxic": ["toxic", "chat"],
+        "recovery": ["recovery", "reset"],
+        "tilt": ["tilt", "risk"],
+        "voice": ["voice", "comms"],
+        "input": ["input", "spam", "mouse", "keyboard"],
     }
     active = {name for name, aliases in terms.items() if any(alias in query for alias in aliases)}
     rows = list(st.session_state.session_series)
@@ -3216,34 +3153,34 @@ def search_somatic_moments(query: str, limit: int = 8) -> list[dict]:
 def answer_coach_copilot(question: str) -> str:
     question = (question or "").strip()
     if not question:
-        return "Задай вопрос по сессии."
+        return "Ask about breakdown, clutch prep, recovery, or which command worked."
     report = build_post_match_report()
     command = coach_command_effectiveness()
     causal = build_causal_intervention_graph()
     readiness = build_universal_readiness_score()
     next_best = recommend_next_best_intervention()
     q = question.lower()
-    if "почему" in q or "слом" in q:
+    if "why" in q or "breakdown" in q:
         return (
-            f"Главная причина breakdown: {report.get('what_broke_state', 'n/a')}. "
-            f"Событие-триггер: {report.get('trigger_event', 'n/a')}. "
-            f"Эмоциональный слой: {report.get('dominant_emotion', 'n/a')}."
+            f"Main breakdown driver: {report.get('what_broke_state', 'n/a')}. "
+            f"Trigger event: {report.get('trigger_event', 'n/a')}. "
+            f"Dominant state: {report.get('dominant_emotion', 'n/a')}."
         )
-    if "clutch" in q or "клатч" in q:
+    if "clutch" in q or "pressure" in q:
         return (
-            f"Перед clutch держи readiness выше 70. Сейчас {readiness['readiness']:.0f}. "
-            f"Команда перед входом: {next_best.get('cue', 'СБРОСЬ НАПРЯЖЕНИЕ')}."
+            f"Before clutch, aim for readiness above 70. Current readiness is {readiness['readiness']:.0f}. "
+            f"Next cue: {next_best.get('cue', 'n/a')}."
         )
-    if "команд" in q or "сработ" in q:
+    if "command" in q or "worked" in q:
         return (
-            f"Лучшая команда: {command.get('best_command', 'n/a')}. "
-            f"Эффективность: {command.get('effectiveness', 0):.0f}%, tilt drop {command.get('tilt_drop', 0):.0f}."
+            f"Best command: {command.get('best_command', 'n/a')}. "
+            f"Effectiveness: {command.get('effectiveness', 0):.0f}%, tilt drop {command.get('tilt_drop', 0):.0f}."
         )
-    if "что делать" in q or "трен" in q:
+    if "train" in q or "practice" in q:
         training = generate_micro_training_plan()
-        return f"Тренинг на 3 минуты: {training['title']}. {training['summary']}"
+        return f"3-minute drill: {training['title']}. {training['summary']}"
     return (
-        f"Состояние: readiness {readiness['readiness']:.0f} ({readiness['label']}), "
+        f"Current state: readiness {readiness['readiness']:.0f} ({readiness['label']}), "
         f"causal confidence {causal.get('causal_confidence', 0):.0f}%, "
         f"next cue: {next_best.get('cue', 'n/a')}."
     )
@@ -3255,10 +3192,10 @@ def detect_twin_drift() -> dict:
     current = build_somatic_signature()
     if len(history) < 2 or current.get("status") != "ready":
         return {
-            "status": "нужно больше истории",
+            "status": "collecting baseline",
             "drift_score": 0.0,
             "label": "baseline forming",
-            "reason": "сохрани Somatic Twin Memory после нескольких сессий",
+            "reason": 'Somatic Twin Memory',
         }
     current_weights = current.get("modality_weights", {})
     historical = []
@@ -3267,7 +3204,7 @@ def detect_twin_drift() -> dict:
         if weights:
             historical.append(weights)
     if not historical:
-        return {"status": "нет весов истории", "drift_score": 0.0, "label": "pending", "reason": "нет сравнимых signatures"}
+        return {"status": "collecting baseline", "drift_score": 0.0, "label": "pending", "reason": "not enough signatures"}
     keys = sorted(set(current_weights) | {key for weights in historical for key in weights})
     current_vec = np.array([float(current_weights.get(key, 0.0)) for key in keys], dtype=float)
     hist_vec = np.mean(
@@ -3276,14 +3213,14 @@ def detect_twin_drift() -> dict:
     )
     drift = float(np.linalg.norm(current_vec - hist_vec) / max(math.sqrt(len(keys)) * 100, 1) * 100)
     if drift >= 34:
-        label = "сильный дрейф"
-        reason = "сегодняшнее тело заметно отличается от обычного baseline"
+        label = "meaningful drift"
+        reason = 'baseline calibration'
     elif drift >= 18:
-        label = "умеренный дрейф"
-        reason = "есть признаки усталости/нового паттерна"
+        label = "watch drift"
+        reason = "body-state pattern moved from baseline"
     else:
-        label = "в пределах baseline"
-        reason = "состояние похоже на обычный профиль"
+        label = 'baseline calibration'
+        reason = "near personal baseline"
     return {
         "status": "ready",
         "drift_score": round(clamp(drift), 1),
@@ -3297,11 +3234,11 @@ def generate_micro_training_plan() -> dict:
     protocol = generate_recovery_protocol(report)
     driver = report.get("what_broke_state", "n/a")
     blocks = {
-        "челюсть": ["0:00-0:40 jaw unlock", "0:40-1:40 tongue floor + nasal exhale", "1:40-3:00 soft gaze while jaw stays open"],
-        "плечи": ["0:00-0:40 shoulder drop", "0:40-1:40 scapula heavy breathing", "1:40-3:00 game posture reset"],
-        "мышь/клавиатура": ["0:00-0:40 hands off keys", "0:40-1:40 slow click drill", "1:40-3:00 calm aim tracing"],
-        "голос": ["0:00-0:40 lower tone", "0:40-1:40 short comms only", "1:40-3:00 silent recovery breath"],
-        "эмоциональное возбуждение": ["0:00-0:40 face neutral", "0:40-1:40 peripheral vision", "1:40-3:00 slow exhale before next fight"],
+        "jaw": ["0:00-0:40 jaw unlock", "0:40-1:40 tongue floor + nasal exhale", "1:40-3:00 soft gaze while jaw stays open"],
+        "shoulders": ["0:00-0:40 shoulder drop", "0:40-1:40 scapula heavy breathing", "1:40-3:00 game posture reset"],
+        "input": ["0:00-0:40 hands off keys", "0:40-1:40 slow click drill", "1:40-3:00 calm aim tracing"],
+        "voice": ["0:00-0:40 lower tone", "0:40-1:40 short comms only", "1:40-3:00 silent recovery breath"],
+        "face": ["0:00-0:40 face neutral", "0:40-1:40 peripheral vision", "1:40-3:00 slow exhale before next fight"],
     }
     chosen = blocks.get(driver, ["0:00-1:00 shoulders down", "1:00-2:00 jaw soft", "2:00-3:00 long exhale"])
     return {
@@ -3371,12 +3308,12 @@ def build_before_after_proof_card() -> dict:
     command = coach_command_effectiveness()
     if not series:
         return {
-            "headline": "Proof card появится после сессии",
+            "headline": 'Proof card',
             "before": 0,
             "after": 0,
             "delta": 0,
             "cue": "n/a",
-            "caption": "Запусти scan или Investor Demo Session.",
+            "caption": 'scan Investor Demo Session',
         }
     tilts = [float(row.get("tilt", 0.0)) for row in series]
     before = max(tilts)
@@ -3388,7 +3325,7 @@ def build_before_after_proof_card() -> dict:
         "after": round(after, 1),
         "delta": round(delta, 1),
         "cue": command.get("best_command") or report.get("winning_command", "n/a"),
-        "caption": f"{report.get('what_broke_state', 'state')} cleared · recovery {report.get('recovery_score', 0):.0f}%",
+        "caption": f"{report.get('what_broke_state', 'state')} cleared    recovery {report.get('recovery_score', 0):.0f}%",
     }
 
 
@@ -3572,23 +3509,30 @@ def draw_neon_pose_overlay(
         landmark = landmarks[index]
         return int(landmark.x * width), int(landmark.y * height)
 
-    for connection in vision.PoseLandmarksConnections.POSE_LANDMARKS:
-        start = pose_landmarks[connection.start]
-        end = pose_landmarks[connection.end]
+    upper_body_connections = [
+        (vision.PoseLandmark.NOSE.value, vision.PoseLandmark.LEFT_SHOULDER.value),
+        (vision.PoseLandmark.NOSE.value, vision.PoseLandmark.RIGHT_SHOULDER.value),
+        (vision.PoseLandmark.LEFT_SHOULDER.value, vision.PoseLandmark.RIGHT_SHOULDER.value),
+        (vision.PoseLandmark.LEFT_SHOULDER.value, vision.PoseLandmark.LEFT_ELBOW.value),
+        (vision.PoseLandmark.RIGHT_SHOULDER.value, vision.PoseLandmark.RIGHT_ELBOW.value),
+    ]
+    for start_index, end_index in upper_body_connections:
+        start = pose_landmarks[start_index]
+        end = pose_landmarks[end_index]
         if min(start.visibility, end.visibility, start.presence, end.presence) < 0.35:
             continue
         cv2.line(
             annotated,
-            point(pose_landmarks, connection.start),
-            point(pose_landmarks, connection.end),
+            point(pose_landmarks, start_index),
+            point(pose_landmarks, end_index),
             dim_color,
             7,
             cv2.LINE_AA,
         )
         cv2.line(
             annotated,
-            point(pose_landmarks, connection.start),
-            point(pose_landmarks, connection.end),
+            point(pose_landmarks, start_index),
+            point(pose_landmarks, end_index),
             color,
             2,
             cv2.LINE_AA,
@@ -3598,17 +3542,26 @@ def draw_neon_pose_overlay(
         vision.PoseLandmark.NOSE.value,
         vision.PoseLandmark.LEFT_SHOULDER.value,
         vision.PoseLandmark.RIGHT_SHOULDER.value,
+        vision.PoseLandmark.LEFT_ELBOW.value,
+        vision.PoseLandmark.RIGHT_ELBOW.value,
     }
-    for index, landmark in enumerate(pose_landmarks):
+    for index in hot_points:
+        if index >= len(pose_landmarks):
+            continue
+        landmark = pose_landmarks[index]
         if min(landmark.visibility, landmark.presence) < 0.35:
             continue
-        radius = 7 if index in hot_points else 3
+        radius = 7 if index in {
+            vision.PoseLandmark.NOSE.value,
+            vision.PoseLandmark.LEFT_SHOULDER.value,
+            vision.PoseLandmark.RIGHT_SHOULDER.value,
+        } else 4
         cv2.circle(annotated, point(pose_landmarks, index), radius + 4, dim_color, -1, cv2.LINE_AA)
         cv2.circle(annotated, point(pose_landmarks, index), radius, color, -1, cv2.LINE_AA)
 
     if face_landmarks:
-        # MediaPipe Face Landmarker обычно дает 478 точек лица. В легком
-        # режиме рисуем ключевые зоны, в полном — всю "облако-точек" лица.
+        # Legacy implementation note cleaned for English demo.
+        # Legacy implementation note cleaned for English demo.
         if st.session_state.get("show_face_points_overlay", True):
             dot_color = (35, 135, 105) if tilt_score < 75 else (95, 30, 45)
             for face_point in face_landmarks:
@@ -3655,14 +3608,34 @@ def open_camera(
     height: int = 360,
     fps: int = 15,
 ) -> Optional[cv2.VideoCapture]:
-    cap = cv2.VideoCapture(camera_index)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-    cap.set(cv2.CAP_PROP_FPS, fps)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    if not cap.isOpened():
-        return None
-    return cap
+    backends = []
+    if os.name == "nt":
+        backends.extend([cv2.CAP_DSHOW, cv2.CAP_MSMF])
+    backends.append(0)
+
+    for backend in backends:
+        cap = cv2.VideoCapture(camera_index, backend) if backend else cv2.VideoCapture(camera_index)
+        if not cap or not cap.isOpened():
+            if cap is not None:
+                cap.release()
+            continue
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if hasattr(cv2, "VideoWriter_fourcc"):
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+
+        ok = False
+        for _ in range(8):
+            ok, _frame = cap.read()
+            if ok:
+                break
+            time.sleep(0.05)
+        if ok:
+            return cap
+        cap.release()
+    return None
 
 
 def selected_camera_settings() -> tuple[int, int, int]:
@@ -3677,9 +3650,9 @@ def selected_camera_settings() -> tuple[int, int, int]:
         height = min(height, 360)
         fps = min(fps, 15)
 
-    # Нельзя перезаписывать st.session_state.camera_fps/camera_resolution:
-    # это ключи виджетов Streamlit. Для фактических runtime-настроек камеры
-    # используем отдельные поля effective_*.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
+    # Legacy implementation note cleaned for English demo.
     st.session_state.effective_camera_width = width
     st.session_state.effective_camera_height = height
     st.session_state.effective_camera_fps = fps
@@ -3690,7 +3663,28 @@ def close_camera() -> None:
     cap = st.session_state.get("camera")
     if cap is not None:
         cap.release()
+        time.sleep(0.12)
     st.session_state.camera = None
+
+
+def start_camera_session(status_prefix: str = "Running") -> bool:
+    close_camera()
+    width, height, fps = selected_camera_settings()
+    st.session_state.camera = open_camera(
+        st.session_state.camera_index,
+        width,
+        height,
+        fps,
+    )
+    st.session_state.running = st.session_state.camera is not None
+    if st.session_state.running:
+        st.session_state.pipeline_status = f"{status_prefix}: camera {st.session_state.camera_index}, {width}x{height}@{fps}"
+        return True
+    st.session_state.pipeline_status = (
+        f"Camera failed on index {st.session_state.camera_index}. "
+        "Close Zoom/Discord/OBS/browser camera tabs or try camera index 1."
+    )
+    return False
 
 
 def reset_runtime_state(keep_alert: bool = False) -> None:
@@ -4419,7 +4413,7 @@ def render_tilt_meter(metrics: Optional[BiomechanicsMetrics]) -> None:
     st.markdown(
         f"""
         <div class="meter-shell">
-            <div class="metric-label">Индикатор тильта</div>
+            <div class="metric-label">Tilt indicator</div>
             <div class="tilt-meter">
                 <div class="tilt-fill" style="width:{tilt:.1f}%; background:{color_hex}; color:{color_hex};"></div>
             </div>
@@ -4431,31 +4425,31 @@ def render_tilt_meter(metrics: Optional[BiomechanicsMetrics]) -> None:
 
     if metrics:
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.markdown('<div class="metric-label">Подъем плеч</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-label">Shoulder elevation</div>', unsafe_allow_html=True)
         st.markdown(
             f'<div class="metric-value">{metrics.shoulder_elevation_score:.1f}</div>',
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="metric-label">Асимметрия плеч</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-label">Shoulder asymmetry</div>', unsafe_allow_html=True)
         st.markdown(
-            f'<div class="metric-value">{metrics.shoulder_asymmetry_percent:.1f}% · {metrics.shoulder_slope_degrees:.1f} deg</div>',
+            f'<div class="metric-value">{metrics.shoulder_asymmetry_percent:.1f}% | {metrics.shoulder_slope_degrees:.1f} deg</div>',
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="metric-label">Челюстной зажим</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-label">Jaw tension</div>', unsafe_allow_html=True)
         st.markdown(
             f'<div class="metric-value">{metrics.jaw_clench_score:.1f}</div>',
             unsafe_allow_html=True,
         )
         st.caption(
-            f"Face blendshape score: {metrics.jaw_blendshape_score:.1f} · "
+            f"Face blendshape score: {metrics.jaw_blendshape_score:.1f} | "
             f"jaw open ratio: {metrics.jaw_open_ratio if metrics.jaw_open_ratio is not None else 'n/a'}"
         )
         st.caption(
-            f"Качество трекинга лица: {st.session_state.face_tracking_quality:.0f}%"
+            f"Face tracking quality: {st.session_state.face_tracking_quality:.0f}%"
         )
         st.caption(
-            f"Поднятые плечи: {st.session_state.shoulder_elevated_seconds:.1f}s / 3.0s · "
-            f"Асимметрия: {st.session_state.asymmetry_seconds:.1f}s"
+            f"Raised shoulders: {st.session_state.shoulder_elevated_seconds:.1f}s / 3.0s | "
+            f"Asymmetry: {st.session_state.asymmetry_seconds:.1f}s"
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -4468,11 +4462,11 @@ def render_quick_guide() -> None:
     st.markdown(
         """
         <div class="guide-panel">
-            <div class="guide-title">Как читать этот экран</div>
-            <div class="guide-step"><div class="step-num">1</div><div><b>Запусти сканирование.</b> Камера ищет скелет, плечи, лицо, глаза, рот и челюсть.</div></div>
-            <div class="guide-step"><div class="step-num">2</div><div><b>Калибруй нейтраль.</b> 10 секунд спокойной позы дают персональный baseline.</div></div>
-            <div class="guide-step"><div class="step-num">3</div><div><b>Смотри Tilt + Emotion.</b> Система сама ставит auto-label: фокус, фрустрация, усталость, стресс, контроль.</div></div>
-            <div class="guide-step"><div class="step-num">4</div><div><b>После алерта смотри Recovery.</b> Это скорость, с которой тело сбрасывает напряжение после команды коуча.</div></div>
+            <div class="guide-title">How to read this screen</div>
+            <div class="guide-step"><div class="step-num">1</div><div><b>Start scanning.</b> The camera looks for posture, shoulders, face, eyes, mouth and jaw.</div></div>
+            <div class="guide-step"><div class="step-num">2</div><div><b>Calibrate neutral.</b> Ten seconds of calm posture creates a personal baseline.</div></div>
+            <div class="guide-step"><div class="step-num">3</div><div><b>Watch Tilt + Emotion.</b> The system adds auto-labels for focus, frustration, fatigue, stress and control.</div></div>
+            <div class="guide-step"><div class="step-num">4</div><div><b>After an alert, watch Recovery.</b> Recovery measures how quickly the body returns to baseline after a coach command.</div></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4482,7 +4476,7 @@ def render_quick_guide() -> None:
 def render_mission_control() -> None:
     """The top "flight deck" of the cockpit: 4 numbers a tester actually
     cares about (tilt, readiness, coach status, FPS) plus one big primary
-    action. Everything else stays available below — just no longer in the
+    action. Everything else stays available below - just no longer in the
     user's face. This is purely a presentation layer; it reads from
     session_state and never mutates it.
     """
@@ -4498,7 +4492,7 @@ def render_mission_control() -> None:
     if not running:
         status_chip = "OFFLINE"
         status_class = "mc-status-offline"
-        status_hint = "Камера не активна. Нажми «Старт сессии», чтобы коуч увидел тело."
+        status_hint = "Camera is not active. Press Start session so the coach can read body-state signals."
     elif coach_alert:
         status_chip = "ALERT"
         status_class = "mc-status-alert"
@@ -4506,15 +4500,15 @@ def render_mission_control() -> None:
     elif tilt_score >= 60:
         status_chip = "TENSE"
         status_class = "mc-status-tense"
-        status_hint = "Тильт нарастает. Смягчи челюсть, опусти плечи, выдох."
+        status_hint = "Tilt is rising. Soften jaw, drop shoulders, exhale."
     elif tilt_score >= 35:
         status_chip = "BUILDING"
         status_class = "mc-status-building"
-        status_hint = "Лёгкое напряжение. Коуч следит, команды ещё не нужны."
+        status_hint = "Mild tension. Coach is watching; no command needed yet."
     else:
         status_chip = "GREEN"
         status_class = "mc-status-green"
-        status_hint = pipeline_status or "Тело спокойно. Коуч ждёт триггер."
+        status_hint = pipeline_status or "Body is calm. Coach is waiting for a real trigger."
 
     band = "high" if tilt_score >= 70 else "medium" if tilt_score >= 40 else "low"
     readiness = scoring.readiness_score(
@@ -4530,28 +4524,28 @@ def render_mission_control() -> None:
           <div class="mc-row">
             <div class="mc-card mc-card-primary mc-band-{band}">
               <div class="mc-card-label">Tilt level
-                <span class="mc-tip" title="0–40 спокойно · 40–70 нарастает · 70+ тильт. Считается из позы, челюсти и эмоций.">?</span>
+                <span class="mc-tip" title="0-40 calm | 40-70 rising | 70+ high risk. Computed from posture, jaw, face and recovery.">?</span>
               </div>
               <div class="mc-card-value">{int(round(tilt_score))}<span class="mc-card-suffix">/100</span></div>
               <div class="mc-card-band">{band.upper()}</div>
             </div>
             <div class="mc-card">
               <div class="mc-card-label">Readiness
-                <span class="mc-tip" title="Насколько ты готов играть прямо сейчас. Учитывает tilt, челюсть, плечи, recovery.">?</span>
+                <span class="mc-tip" title="How ready you are to play right now. Uses tilt, jaw, shoulders and recovery.">?</span>
               </div>
               <div class="mc-card-value">{int(round(readiness))}<span class="mc-card-suffix">/100</span></div>
               <div class="mc-card-band">{'READY' if readiness >= 65 else 'WORKING' if readiness >= 40 else 'LOW'}</div>
             </div>
             <div class="mc-card">
               <div class="mc-card-label">Camera
-                <span class="mc-tip" title="Качество камеры. Ниже 55% коуч молчит, чтобы не давать ложные команды.">?</span>
+                <span class="mc-tip" title="Camera signal quality. Below 55%, coach alerts are suppressed to avoid false commands.">?</span>
               </div>
               <div class="mc-card-value">{int(round(face_quality))}<span class="mc-card-suffix">%</span></div>
               <div class="mc-card-band">{'GOOD' if face_quality >= 65 else 'WEAK' if face_quality > 0 else 'NO FACE'}</div>
             </div>
             <div class="mc-card">
               <div class="mc-card-label">Engine FPS
-                <span class="mc-tip" title="Сколько кадров в секунду обрабатывает кокпит. 8+ — здоровый темп.">?</span>
+                <span class="mc-tip" title="How many frames per second the cockpit is processing. 8+ is healthy for this MVP.">?</span>
               </div>
               <div class="mc-card-value">{fps_value:.1f}</div>
               <div class="mc-card-band">{'OK' if fps_value >= 8 else 'SLOW' if fps_value > 0 else 'IDLE'}</div>
@@ -4570,11 +4564,11 @@ def render_mission_control() -> None:
     with primary_col:
         if not running:
             if st.button(
-                "Старт сессии",
+                "Start session",
                 key="mc_start_btn",
                 use_container_width=True,
                 type="primary",
-                help="Открывает камеру и запускает live engine. Один клик — и коуч начинает видеть тело.",
+                help="Opens the camera and starts the live engine. One click and the coach begins reading body-state signals.",
             ):
                 close_camera()
                 reset_runtime_state()
@@ -4584,54 +4578,36 @@ def render_mission_control() -> None:
                 st.session_state.somatic_logs.clear()
                 st.session_state.external_event_offset = 0
                 st.session_state.creator_viewer_resets = 0
-                width, height, fps = selected_camera_settings()
-                st.session_state.camera = open_camera(
-                    st.session_state.camera_index,
-                    width,
-                    height,
-                    fps,
-                )
-                st.session_state.running = st.session_state.camera is not None
-                st.session_state.pipeline_status = (
-                    "Поток позы активен" if st.session_state.running else "Камера недоступна"
-                )
+                start_camera_session("Pose stream active")
         else:
             if st.button(
-                "Стоп",
+                "Stop",
                 key="mc_stop_btn",
                 use_container_width=True,
-                help="Останавливает камеру и оставляет отчёт сессии на экране.",
+                help="Stops the camera and keeps the session report on screen.",
             ):
                 st.session_state.running = False
                 close_camera()
-                st.session_state.pipeline_status = "Сканирование остановлено"
+                st.session_state.pipeline_status = "Scanning stopped"
     with secondary_col:
         if st.button(
-            "Калибровать (10 сек)",
+            "Calibrate (10 sec)",
             key="mc_calibrate_btn",
             use_container_width=True,
-            help="Снимает твою нормальную посадку. Резко повышает точность.",
+            help="Captures your neutral posture. This strongly improves personal accuracy.",
         ):
             if not st.session_state.running:
-                close_camera()
-                width, height, fps = selected_camera_settings()
-                st.session_state.camera = open_camera(
-                    st.session_state.camera_index,
-                    width,
-                    height,
-                    fps,
-                )
-                st.session_state.running = st.session_state.camera is not None
+                start_camera_session("Calibration camera active")
             if st.session_state.running:
                 start_calibration()
             else:
-                st.session_state.pipeline_status = "Камера недоступна для калибровки"
+                st.session_state.pipeline_status = "Camera unavailable for calibration"
     with tertiary_col:
         if st.button(
-            "Сбросить тильт",
+            "Reset tilt",
             key="mc_reset_btn",
             use_container_width=True,
-            help="Обнуляет накопленный Tilt и текущую команду коуча.",
+            help="Clears accumulated Tilt and the current coach command.",
         ):
             reset_runtime_state()
             st.session_state.coach_alert = ""
@@ -4641,19 +4617,19 @@ def render_model_stack_panel() -> None:
     backend = research_emotion_backend_status()
     active_backend = st.session_state.get("emotion_backend", "")
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Что сейчас анализирует ИИ")
+    st.subheader("What the AI is analyzing now")
     st.markdown(
         f"""
         <div class="model-badge">
-            <b>Активный realtime backend:</b> {html.escape(active_backend)}<br>
-            <b>Лицо:</b> до 478 точек Face Landmarker + 52 blendshape-коэффициента<br>
-            <b>Тело:</b> 33 точки Pose Landmarker<br>
-            <b>Интерпретация:</b> эмоции + биомеханика + голос + mouse/keyboard + recovery
+            <b>Active realtime backend:</b> {html.escape(active_backend)}<br>
+            <b>Face:</b> up to 478 Face Landmarker points + 52 blendshape coefficients<br>
+            <b>Body:</b> 33 Pose Landmarker points<br>
+            <b>Interpretation:</b> facial tension + biomechanics + voice + mouse/keyboard + recovery
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Почему не только 'готовая эмоция': готовые FER-модели часто ошибаются без персонального baseline. Мы собираем интерпретируемые признаки и строим свою модель поверх них.")
+    st.caption("Why not only off-the-shelf emotion recognition: FER models often fail without a personal baseline. We collect interpretable body-state features and build our own model on top.")
     st.caption(backend["research_status"])
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -4667,14 +4643,14 @@ def render_llm_health_panel() -> None:
     model = html.escape(str(health.get("model", get_llm_model())))
     latency = health.get("latency_ms")
     latency_text = f"{latency} ms" if latency is not None else "n/a"
-    fallback_text = "LLM отвечает" if connected else "Local fallback alert активен"
+    fallback_text = "LLM responding" if connected else "Local fallback alert active"
     st.markdown(
         f"""
         <div class="panel">
             <h3>LLM health check</h3>
             <div class="model-badge">
-                <b style="color:{color}">● {html.escape(status.upper())}</b><br>
-                <b>Модель:</b> {model}<br>
+                <b style="color:{color}">* {html.escape(status.upper())}</b><br>
+                <b>Model:</b> {model}<br>
                 <b>Latency:</b> {latency_text}<br>
                 <b>Fallback:</b> {fallback_text}<br>
                 <span>{message}</span>
@@ -4705,30 +4681,9 @@ def render_performance_profile_panel() -> None:
 
 def render_investor_thesis_panel() -> None:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Что мы строим")
-    st.caption("Не просто детектор эмоций. Это user-owned слой понимания состояния человека: тело, лицо, голос, ввод, восстановление и персональная норма.")
-    st.markdown(
-        """
-        <div class="cockpit-grid">
-            <div class="cockpit-card">
-                <div class="cockpit-label">1. Считываем</div>
-                <div class="cockpit-value">тело + лицо</div>
-                <div class="cockpit-note">33 точки позы, до 478 точек лица, blendshapes, челюсть, плечи, взгляд</div>
-            </div>
-            <div class="cockpit-card">
-                <div class="cockpit-label">2. Понимаем</div>
-                <div class="cockpit-value">паттерн</div>
-                <div class="cockpit-note">baseline, drift, embeddings, события игры, голос и input telemetry</div>
-            </div>
-            <div class="cockpit-card">
-                <div class="cockpit-label">3. Возвращаем</div>
-                <div class="cockpit-value">контроль</div>
-                <div class="cockpit-note">autopilot дает micro-reset до тильта и считает recovery score</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader("What we are building")
+    st.caption("Not just an emotion detector. This is a user-owned layer for human performance state: body, face, voice, input behavior, recovery and personal baseline.")
+    st.caption("Research cockpit: local camera analysis, derived signals only. No raw video is stored.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -4756,13 +4711,13 @@ def render_product_module_matrix() -> None:
         ("OpenFace / AU Verifier", "offline"),
     ]
     pills = "".join(
-        f'<span class="signal-pill">{html.escape(name)} · {html.escape(status)}</span>'
+        f'<span class="signal-pill">{html.escape(name)}    {html.escape(status)}</span>'
         for name, status in modules
     )
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("15 модулей Somatic Intelligence OS")
+    st.subheader("Somatic Intelligence OS")
     st.markdown(f'<div class="pill-row">{pills}</div>', unsafe_allow_html=True)
-    st.caption("Это уже не один детектор эмоций, а система: sensing -> interpretation -> coaching -> recovery -> dataset -> model.")
+    st.caption("Pipeline: sensing -> interpretation -> coaching -> recovery -> dataset -> model")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -4778,14 +4733,14 @@ def render_founder_pitch_mode() -> None:
     modalities = moat["modalities"]
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Founder Pitch Mode")
-    st.caption("Один экран для инвестора: что случилось, чем мы отличаемся, где data moat.")
+    st.caption(': , , data moat')
     st.markdown(
         f"""
         <div class="cockpit-grid">
             <div class="cockpit-card">
                 <div class="cockpit-label">Human state API</div>
                 <div class="cockpit-value">{readiness['readiness']:.0f}</div>
-                <div class="cockpit-note">Human Readiness · {html.escape(readiness['label'])}</div>
+                <div class="cockpit-note">Human Readiness    {html.escape(readiness['label'])}</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Recovery</div>
@@ -4850,17 +4805,17 @@ def render_data_moat_panel() -> None:
             <div class="cockpit-card">
                 <div class="cockpit-label">Auto-label dataset</div>
                 <div class="cockpit-value">{moat['auto_label_samples']}</div>
-                <div class="cockpit-note">JSONL samples для будущей модели</div>
+                <div class="cockpit-note">JSONL samples                   </div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Human-state API</div>
                 <div class="cockpit-value">{moat['api_events']}</div>
-                <div class="cockpit-note">stream events для OBS/game/coach</div>
+                <div class="cockpit-note">stream events     OBS/game/coach</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Personal baselines</div>
                 <div class="cockpit-value">{moat['profiles']}</div>
-                <div class="cockpit-note">персональные somatic twins</div>
+                <div class="cockpit-note">             somatic twins</div>
             </div>
         </div>
         <div class="pill-row">{modality_pills}</div>
@@ -4875,12 +4830,12 @@ def render_universal_readiness_panel(metrics: Optional[BiomechanicsMetrics] = No
     readiness = build_universal_readiness_score(metrics)
     color = "#30ff91" if readiness["readiness"] >= 76 else "#ffb84d" if readiness["readiness"] >= 52 else "#ff2b47"
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Универсальный индекс состояния")
-    st.caption("Один индекс за пределами гейминга: фокус, стресс, восстановление, усталость, контроль.")
+    st.subheader("Readiness Profile")
+    st.caption("Focus, stress, recovery, fatigue, and body control.")
     st.markdown(
         f"""
         <div class="meter-shell">
-            <div class="metric-label">Готовность человека</div>
+            <div class="metric-label">Readiness</div>
             <div class="tilt-meter">
                 <div class="tilt-fill" style="width:{readiness['readiness']:.1f}%; background:{color}; color:{color};"></div>
             </div>
@@ -4888,11 +4843,11 @@ def render_universal_readiness_panel(metrics: Optional[BiomechanicsMetrics] = No
             <div style="color:#8da69c;">{html.escape(readiness['label'])}</div>
         </div>
         <div class="cockpit-grid">
-            <div class="cockpit-card"><div class="cockpit-label">Фокус</div><div class="cockpit-value">{readiness['focus']:.0f}</div></div>
-            <div class="cockpit-card"><div class="cockpit-label">Стресс</div><div class="cockpit-value">{readiness['stress']:.0f}</div></div>
-            <div class="cockpit-card"><div class="cockpit-label">Восстановление</div><div class="cockpit-value">{readiness['recovery']:.0f}</div></div>
-            <div class="cockpit-card"><div class="cockpit-label">Усталость</div><div class="cockpit-value">{readiness['fatigue']:.0f}</div></div>
-            <div class="cockpit-card"><div class="cockpit-label">Контроль</div><div class="cockpit-value">{readiness['control']:.0f}</div></div>
+            <div class="cockpit-card"><div class="cockpit-label">Focus</div><div class="cockpit-value">{readiness['focus']:.0f}</div></div>
+            <div class="cockpit-card"><div class="cockpit-label">Stress</div><div class="cockpit-value">{readiness['stress']:.0f}</div></div>
+            <div class="cockpit-card"><div class="cockpit-label">Recovery</div><div class="cockpit-value">{readiness['recovery']:.0f}</div></div>
+            <div class="cockpit-card"><div class="cockpit-label">Fatigue</div><div class="cockpit-value">{readiness['fatigue']:.0f}</div></div>
+            <div class="cockpit-card"><div class="cockpit-label">Control</div><div class="cockpit-value">{readiness['control']:.0f}</div></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4902,21 +4857,21 @@ def render_universal_readiness_panel(metrics: Optional[BiomechanicsMetrics] = No
 
 def render_somatic_autopilot_panel() -> None:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Соматический автопилот")
-    st.caption("Система выбирает micro-reset до тильта: если через несколько секунд ожидается jaw-lock или spike напряжения, команда появляется заранее.")
-    cue = st.session_state.autopilot_cue or "Автопилот пока наблюдает"
+    st.subheader("Somatic Autopilot")
+    st.caption("Suggested micro-intervention from current body-state signals.")
+    cue = st.session_state.autopilot_cue or "Waiting for a clear cue"
     st.markdown(
         f"""
         <div class="cockpit-grid">
             <div class="cockpit-card">
-                <div class="cockpit-label">Статус</div>
-                <div class="cockpit-value">{'включен' if st.session_state.autopilot_enabled else 'выключен'}</div>
+                <div class="cockpit-label">Status</div>
+                <div class="cockpit-value">{'ON' if st.session_state.autopilot_enabled else 'OFF'}</div>
                 <div class="cockpit-note">{html.escape(st.session_state.autopilot_status)}</div>
             </div>
             <div class="cockpit-card">
-                <div class="cockpit-label">Текущая команда</div>
+                <div class="cockpit-label">Current cue</div>
                 <div class="cockpit-value">{html.escape(cue)}</div>
-                <div class="cockpit-note">intervention до тильта</div>
+                <div class="cockpit-note">short intervention suggestion</div>
             </div>
         </div>
         """,
@@ -4928,41 +4883,41 @@ def render_somatic_autopilot_panel() -> None:
 def render_body_state_embeddings_panel(metrics: Optional[BiomechanicsMetrics] = None) -> None:
     stats = body_state_embedding_stats(metrics)
     similar_rows = "".join(
-        f'<div class="event-row">{html.escape(item["timestamp"])} · similarity={item["similarity"]}% · tilt={item["tilt"]} · {html.escape(item["phrase"])} · {html.escape(item["emotion"])}</div>'
+        f'<div class="event-row">{html.escape(item["timestamp"])}    similarity={item["similarity"]}%    tilt={item["tilt"]}    {html.escape(item["phrase"])}    {html.escape(item["emotion"])}</div>'
         for item in stats["similar"]
     )
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Векторы телесного состояния")
-    st.caption('Каждый момент превращается в вектор состояния тела. Потом можно искать похожие паттерны: "я уже был в таком состоянии".')
+    st.subheader("Body-State Memory")
+    st.caption("Find similar derived body-state moments. No raw video is stored.")
     st.markdown(
         f"""
         <div class="cockpit-grid">
             <div class="cockpit-card">
-                <div class="cockpit-label">Векторов в памяти</div>
+                <div class="cockpit-label">Stored states</div>
                 <div class="cockpit-value">{stats['count']}</div>
                 <div class="cockpit-note">{html.escape(stats['model'])}</div>
             </div>
             <div class="cockpit-card">
-                <div class="cockpit-label">Последняя фраза тела</div>
+                <div class="cockpit-label">Last phrase</div>
                 <div class="cockpit-value">{html.escape(stats['last_phrase'])}</div>
-                <div class="cockpit-note">токенизированное состояние тела</div>
+                <div class="cockpit-note">most recent embedded body-state cue</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
     if similar_rows:
-        st.markdown('<div class="metric-label">Похожие состояния</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-label">Similar moments</div>', unsafe_allow_html=True)
         st.markdown(similar_rows, unsafe_allow_html=True)
     else:
-        st.caption("Похожие состояния появятся после нескольких секунд сканирования.")
+        st.caption("No similar moments yet. Run a live session to collect derived body-state memory.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_before_after_proof_card() -> None:
     proof = build_before_after_proof_card()
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Карточка доказательства Before / After")
+    st.subheader('Before / After')
     st.markdown(
         f"""
         <div class="meter-shell">
@@ -4981,7 +4936,7 @@ def render_twin_drift_panel() -> None:
     drift = detect_twin_drift()
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Twin Drift Detection")
-    st.caption("Показывает, отличается ли человек сегодня от своего обычного baseline.")
+    st.caption("Checks whether current body-state drifted from personal baseline.")
     st.markdown(
         f"""
         <div class="cockpit-grid">
@@ -5010,7 +4965,7 @@ def render_micro_training_panel() -> None:
     )
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Micro-Training Generator")
-    st.caption("3-минутный персональный тренинг под dominant lock.")
+    st.caption("3-minute drill based on the dominant lock.")
     st.markdown(
         f"""
         <div class="model-badge"><b>{html.escape(training['title'])}</b><br>{html.escape(training['cue'])}</div>
@@ -5029,7 +4984,7 @@ def render_team_synchrony_panel() -> None:
     )
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Team Synchrony")
-    st.caption("Кто заражает тильтом, кто стабилизирует, когда команда входит в stress wave.")
+    st.caption("Team-level pressure proxy from tilt and facial arousal.")
     st.markdown(
         f"""
         <div class="cockpit-grid">
@@ -5048,13 +5003,13 @@ def render_somatic_search_panel() -> None:
     results = st.session_state.get("somatic_search_results", [])
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Somatic Search")
-    st.caption("Поиск по телесным моментам: jaw lock after death, recovery, input spam, voice tension.")
+    st.caption("Search derived body-state moments by jaw, tilt, event or recovery.")
     if not results:
-        st.caption("Введите запрос в блоке управления и нажмите Search.")
+        st.caption("No matching moments yet.")
     else:
         for result in results:
             st.markdown(
-                f'<div class="event-row">{html.escape(result["time"])} · score={result["score"]} · tilt={result["tilt"]} · {html.escape(result["phrase"])} · {html.escape(result["emotion"])}</div>',
+                f'<div class="event-row">{html.escape(result["time"])}    score={result["score"]}    tilt={result["tilt"]}    {html.escape(result["phrase"])}    {html.escape(result["emotion"])}</div>',
                 unsafe_allow_html=True,
             )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -5063,7 +5018,7 @@ def render_somatic_search_panel() -> None:
 def render_coach_copilot_panel() -> None:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Coach Copilot")
-    st.caption("Задавай вопросы к сессии: почему сломался, что делать перед clutch, какая команда работает.")
+    st.caption("Ask about clutch prep, breakdown drivers, recovery and commands.")
     st.markdown(
         f'<div class="platform-contract">{html.escape(st.session_state.copilot_answer)}</div>',
         unsafe_allow_html=True,
@@ -5075,7 +5030,7 @@ def render_adaptive_game_api_panel() -> None:
     directive = build_adaptive_game_api_directive()
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Adaptive NPC / Game API Demo")
-    st.caption("User-owned API: игрок сам разрешает игре адаптироваться к readiness.")
+    st.caption('User-owned API: readiness')
     st.markdown(
         f'<div class="platform-contract">{html.escape(json.dumps(directive, ensure_ascii=False, indent=2))}</div>',
         unsafe_allow_html=True,
@@ -5089,10 +5044,10 @@ def render_somatic_consent_passport() -> None:
     st.markdown(
         f"""
         <div class="privacy-strip">
-            <b>Собираем:</b> landmarks, face blendshapes, posture metrics, voice/input proxies, timestamps, auto-label confidence, recovery.<br>
-            <b>Не собираем по умолчанию:</b> raw video, raw audio, biometric identity documents.<br>
-            <b>Где хранится:</b> локально в {html.escape(str(DATA_DIR))}.<br>
-            <b>Кому принадлежит:</b> пользователю/профилю. API адаптации только opt-in.
+            <b>Stored:</b> landmarks, face blendshapes, posture metrics, voice/input proxies, timestamps, auto-label confidence, recovery.<br>
+            <b>Never stored:</b> raw video, raw audio, frames, biometric identity documents.<br>
+            <b>Local path:</b> {html.escape(str(DATA_DIR))}.<br>
+            <b>API:</b> derived body-state events only, opt-in.
         </div>
         """,
         unsafe_allow_html=True,
@@ -5113,7 +5068,7 @@ def render_somatic_twin_memory_panel() -> None:
     )
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Somatic Twin Memory")
-    st.caption("Личная память профиля: как именно этот человек входит в стресс и какая команда для него работает.")
+    st.caption("Personal memory of cues, drivers and recovery outcomes.")
     st.markdown(
         f"""
         <div class="cockpit-grid">
@@ -5125,17 +5080,17 @@ def render_somatic_twin_memory_panel() -> None:
             <div class="cockpit-card">
                 <div class="cockpit-label">Dominant lock</div>
                 <div class="cockpit-value">{html.escape(signature.get('dominant_lock', 'n/a'))}</div>
-                <div class="cockpit-note">что первым закрывает систему</div>
+                <div class="cockpit-note">primary body-state pattern</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Resilience</div>
                 <div class="cockpit-value">{signature.get('resilience_score', 0):.0f}%</div>
-                <div class="cockpit-note">скорость и качество восстановления</div>
+                <div class="cockpit-note">recovery strength from recent sessions</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Entry speed</div>
                 <div class="cockpit-value">{signature.get('stress_entry_speed', 0):.2f}</div>
-                <div class="cockpit-note">как быстро растет стресс</div>
+                <div class="cockpit-note">tilt build-up speed</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Cue memory</div>
@@ -5145,7 +5100,7 @@ def render_somatic_twin_memory_panel() -> None:
             <div class="cockpit-card">
                 <div class="cockpit-label">Next best intervention</div>
                 <div class="cockpit-value">{html.escape(next_best.get('cue', 'n/a'))}</div>
-                <div class="cockpit-note">{next_best.get('expected_effectiveness', 0):.0f}% expected · {html.escape(next_best.get('source', 'n/a'))}</div>
+                <div class="cockpit-note">{next_best.get('expected_effectiveness', 0):.0f}% expected from {html.escape(next_best.get('source', 'n/a'))}</div>
             </div>
         </div>
         <div class="pill-row">{weight_pills}</div>
@@ -5165,19 +5120,19 @@ def render_somatic_language_engine_panel() -> None:
     )
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Somatic Language Engine")
-    st.caption("Перевод тела в токены: первая версия собственного языка биомеханики и эмоций.")
+    st.caption("Tokenized body-state sequence for search and prediction.")
     st.markdown(
         f"""
         <div class="cockpit-grid">
             <div class="cockpit-card">
                 <div class="cockpit-label">Somatic alphabet</div>
                 <div class="cockpit-value">{language.get('alphabet_size', 0)}</div>
-                <div class="cockpit-note">уникальных body-language tokens</div>
+                <div class="cockpit-note">body-language tokens</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Entropy</div>
                 <div class="cockpit-value">{language.get('entropy', 0):.0f}%</div>
-                <div class="cockpit-note">сложность текущего состояния</div>
+                <div class="cockpit-note">state variability</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Next token</div>
@@ -5187,12 +5142,12 @@ def render_somatic_language_engine_panel() -> None:
             <div class="cockpit-card">
                 <div class="cockpit-label">Rare transition</div>
                 <div class="cockpit-value">{language.get('rare_transition_score', 0):.0f}%</div>
-                <div class="cockpit-note">насколько необычна траектория</div>
+                <div class="cockpit-note">unusual state transition</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Current phrase</div>
                 <div class="cockpit-value">{html.escape(language.get('current_phrase', 'n/a'))}</div>
-                <div class="cockpit-note">последняя фраза тела</div>
+                <div class="cockpit-note">current token phrase</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Status</div>
@@ -5207,7 +5162,7 @@ def render_somatic_language_engine_panel() -> None:
     )
     state_space = language.get("state_space")
     if state_space is not None and len(state_space) > 2:
-        st.caption("Latent State Map: 2D-проекция траектории состояния из multimodal features.")
+        st.caption('Latent State Map: 2D- multimodal features')
         st.scatter_chart(
             state_space,
             x="Somatic X",
@@ -5227,19 +5182,19 @@ def render_command_effectiveness_panel() -> None:
         f"""
         <div class="cockpit-grid">
             <div class="cockpit-card">
-                <div class="cockpit-label">Эффективность</div>
+                <div class="cockpit-label">Effectiveness</div>
                 <div class="cockpit-value">{command.get('effectiveness', 0):.0f}%</div>
                 <div class="cockpit-note">{html.escape(command.get('status', 'n/a'))}</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Tilt drop</div>
                 <div class="cockpit-value">{command.get('tilt_drop', 0):.0f}</div>
-                <div class="cockpit-note">насколько упал тильт после команды</div>
+                <div class="cockpit-note">tilt reduction after cue</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">Winning cue</div>
                 <div class="cockpit-value">{html.escape(command.get('best_command', 'n/a'))}</div>
-                <div class="cockpit-note">команда, которую система будет предпочитать</div>
+                <div class="cockpit-note">best observed short command</div>
             </div>
         </div>
         """,
@@ -5252,7 +5207,7 @@ def render_causal_intervention_panel() -> None:
     causal = build_causal_intervention_graph()
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Causal Intervention Engine")
-    st.caption("Контрфакт: что было бы с тильтом без команды коуча.")
+    st.caption("Counterfactual estimate after the coach command.")
     st.markdown(
         f"""
         <div class="cockpit-grid">
@@ -5264,12 +5219,12 @@ def render_causal_intervention_panel() -> None:
             <div class="cockpit-card">
                 <div class="cockpit-label">Tilt prevented</div>
                 <div class="cockpit-value">{causal.get('tilt_prevented', 0):.0f}</div>
-                <div class="cockpit-note">разница между прогнозом без команды и фактом</div>
+                <div class="cockpit-note">estimated avoided tilt</div>
             </div>
             <div class="cockpit-card">
                 <div class="cockpit-label">No-coach peak</div>
                 <div class="cockpit-value">{causal.get('counterfactual_peak', 0):.0f}%</div>
-                <div class="cockpit-note">контрфактический пик без intervention</div>
+                <div class="cockpit-note">projected peak without intervention</div>
             </div>
         </div>
         <div class="storyline">
@@ -5285,7 +5240,7 @@ def render_causal_intervention_panel() -> None:
     chart = causal.get("chart")
     if chart:
         st.line_chart(chart, height=190)
-    st.caption("Это MVP counterfactual model, не медицинское доказательство. Но для продукта показывает главное: intervention меняет траекторию состояния.")
+    st.caption('MVP counterfactual model, . : intervention')
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -5293,8 +5248,8 @@ def render_privacy_consent_panel() -> None:
     st.markdown(
         f"""
         <div class="privacy-strip">
-            <b>Privacy-first layer:</b> видео не сохраняется, webcam-кадр не уходит в облако, по умолчанию пишутся только landmarks, признаки, timestamps, auto-label confidence и recovery. 
-            Пользователь владеет своим somatic profile. Gemini подключается только как опциональный coach API.
+            <b>Privacy-first layer:</b> camera analysis stays local; only derived landmarks, scores, timestamps, labels and recovery proof are saved.
+                                       somatic profile. Gemini                                      coach API.
         </div>
         """,
         unsafe_allow_html=True,
@@ -5317,7 +5272,7 @@ def render_emotion_panel(metrics: BiomechanicsMetrics) -> None:
             {html.escape(metrics.emotion_primary.upper())}
         </div>
         <div style="color:#8da69c;margin-top:0.25rem;">
-            confidence {metrics.emotion_confidence:.0f}% · arousal {metrics.emotional_arousal_score:.0f}% · valence {metrics.emotional_valence_score:.0f}%
+            confidence {metrics.emotion_confidence:.0f}%    arousal {metrics.emotional_arousal_score:.0f}%    valence {metrics.emotional_valence_score:.0f}%
         </div>
         """,
         unsafe_allow_html=True,
@@ -5345,15 +5300,15 @@ def render_emotion_panel(metrics: BiomechanicsMetrics) -> None:
         )
 
         st.caption(
-            "Микросигналы: "
-            f"брови {metrics.brow_tension_score:.0f} · "
-            f"глаза/фокус {metrics.eye_focus_score:.0f} · "
-            f"рот {metrics.mouth_tension_score:.0f} · "
-            f"эмо-напряжение {st.session_state.emotional_tension_seconds:.1f}s"
+            ':'
+            f"      {metrics.brow_tension_score:.0f}    "
+            f"     /      {metrics.eye_focus_score:.0f}    "
+            f"    {metrics.mouth_tension_score:.0f}    "
+            f"   -           {st.session_state.emotional_tension_seconds:.1f}s"
         )
     st.caption(
-        "Это не гадание по одной улыбке: модель смотрит на брови, глаза, рот, "
-        "челюсть, позу и стабильность сигнала во времени."
+        ': , , ,'
+        ','
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -5365,16 +5320,16 @@ def render_multimodal_telemetry_panel() -> None:
     input_chaos = float(input_metrics.get("input_chaos_score", 0.0))
     recovery = float(st.session_state.recovery_score)
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown('<div class="metric-label">Мультимодальная телеметрия</div>', unsafe_allow_html=True)
+    st.markdown('<div class="metric-label"> </div>', unsafe_allow_html=True)
     st.markdown(
         f"""
         <div class="mini-grid">
             <div class="mini-card">
-                <div class="mini-label">Голосовой зажим</div>
+                <div class="mini-label">               </div>
                 <div class="mini-value">{voice_tension:.0f}%</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">Скорость речи</div>
+                <div class="mini-label">             </div>
                 <div class="mini-value">{float(voice.get('speech_rate_proxy', 0)):.0f}%</div>
             </div>
             <div class="mini-card">
@@ -5389,23 +5344,23 @@ def render_multimodal_telemetry_panel() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.caption(voice.get("voice_status", "Voice layer выключен"))
-    st.caption(input_metrics.get("input_status", "Mouse/keyboard telemetry выключена"))
+    st.caption(voice.get("voice_status", 'voice'))
+    st.caption(input_metrics.get("input_status", 'mouse/keyboard'))
     if st.session_state.recovery_seconds is not None:
-        st.caption(f"Последнее восстановление: {st.session_state.recovery_seconds}s")
+        st.caption(f"Recovery seconds: {st.session_state.recovery_seconds}s")
     elif st.session_state.recovery_active:
-        st.caption("Recovery window активен: измеряем скорость сброса напряжения")
+        st.caption('Recovery window :')
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_baseline_panel() -> None:
     progress = calibration_progress()
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Нейтральный baseline")
+    st.subheader("Baseline Calibration")
     if st.session_state.is_calibrating:
-        st.progress(progress, text="Записываю нейтральную посадку игрока")
+        st.progress(progress, text="Collecting neutral baseline")
         st.caption(
-            f"Samples: {len(st.session_state.calibration_samples)} · "
+            f"Samples: {len(st.session_state.calibration_samples)}    "
             f"{progress * 100:.0f}%"
         )
     elif st.session_state.baseline_profile:
@@ -5418,25 +5373,25 @@ def render_baseline_panel() -> None:
         st.markdown(
             f"""
             <div class="baseline-ready">
-                Персональный профиль активен<br>
-                соотношение плеч: {baseline['nose_to_shoulders_ratio']:.3f}<br>
-                естественная асимметрия: {baseline['shoulder_asymmetry_percent']:.1f}%<br>
-                baseline челюсти: {jaw_baseline}
+                Neutral baseline saved<br>
+                Nose-to-shoulders ratio: {baseline['nose_to_shoulders_ratio']:.3f}<br>
+                Shoulder asymmetry: {baseline['shoulder_asymmetry_percent']:.1f}%<br>
+                Jaw baseline: {jaw_baseline}
             </div>
             """,
             unsafe_allow_html=True,
         )
     else:
-        st.caption("Baseline еще нет. Перед матчем откалибруй нейтральную посадку.")
+        st.caption("Run calibration to compare tilt against your neutral posture.")
 
     relaxed = st.session_state.jaw_relaxed_baseline
     clenched = st.session_state.jaw_clenched_baseline
     if relaxed or clenched or st.session_state.jaw_calibration_phase:
-        phase = st.session_state.jaw_calibration_phase or "готово"
+        phase = st.session_state.jaw_calibration_phase or "idle"
         st.caption(
-            f"Jaw drill: {phase} · "
-            f"relaxed={'да' if relaxed else 'нет'} · "
-            f"clenched={'да' if clenched else 'нет'}"
+            f"Jaw drill: {phase}    "
+            f"relaxed={'saved' if relaxed else 'missing'}    "
+            f"clenched={'saved' if clenched else 'missing'}"
         )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -5451,15 +5406,15 @@ def render_prediction_panel() -> None:
     st.markdown(
         f"""
         <div class="panel">
-            <div class="metric-label">Прогноз тильта</div>
+            <div class="metric-label">Pre-Tilt Prediction</div>
             <div class="metric-value">{html.escape(str(main))}</div>
             <div class="mini-grid">
                 <div class="mini-card">
-                    <div class="mini-label">Уверенность</div>
+                    <div class="mini-label">Confidence</div>
                     <div class="mini-value">{prediction.get('confidence', 0):.0f}%</div>
                 </div>
                 <div class="mini-card">
-                    <div class="mini-label">Скорость</div>
+                    <div class="mini-label">Slope</div>
                     <div class="mini-value">{prediction.get('slope_per_sec', 0):.2f}/s</div>
                 </div>
             </div>
@@ -5474,15 +5429,15 @@ def render_fingerprint_panel() -> None:
     st.markdown(
         f"""
         <div class="panel">
-            <div class="metric-label">Соматический профиль</div>
+            <div class="metric-label">Somatic Fingerprint</div>
             <div class="metric-value">{html.escape(fingerprint['archetype'])}</div>
             <div class="mini-grid">
                 <div class="mini-card">
-                    <div class="mini-label">Готовность</div>
+                    <div class="mini-label">Readiness</div>
                     <div class="mini-value">{fingerprint['readiness']:.0f}%</div>
                 </div>
                 <div class="mini-card">
-                    <div class="mini-label">Восстановление</div>
+                    <div class="mini-label">Recovery speed</div>
                     <div class="mini-value">{html.escape(fingerprint['recovery_speed'])}</div>
                 </div>
             </div>
@@ -5499,13 +5454,13 @@ def render_alert() -> None:
     else:
         st.markdown(
             '<div class="panel"><div class="metric-label">AI Coach Alert</div>'
-            '<div style="color:#8da69c;">Алерт появится, когда индикатор тильта превысит порог.</div></div>',
+            '<div style="color:#8da69c;">No alert right now. Waiting for a clear high-confidence body-state pattern.</div></div>',
             unsafe_allow_html=True,
         )
 
 
 def render_creator_tools() -> None:
-    overlay_url = "http://localhost:8501/?overlay=1"
+    overlay_url = 'http://localhost:8501/?overlay=1'
     twitch_payload = {
         "type": "twitch_extension_panel",
         "session_id": st.session_state.session_id,
@@ -5513,10 +5468,10 @@ def render_creator_tools() -> None:
         "viewer_action": "send_reset",
     }
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Creator Growth слой")
-    st.caption("OBS/Twitch-ready wedge: стример показывает тильт, зрители понимают продукт за 3 секунды.")
+    st.subheader('Creator Growth')
+    st.caption("OBS/Twitch-ready creator loop.")
     st.code(overlay_url, language="text")
-    st.caption(f"Команды !reset от зрителей: {st.session_state.creator_viewer_resets}")
+    st.caption(f"Viewer !reset count: {st.session_state.creator_viewer_resets}")
     st.markdown(
         f'<div class="platform-contract">{html.escape(json.dumps(twitch_payload, ensure_ascii=False, indent=2))}</div>',
         unsafe_allow_html=True,
@@ -5536,8 +5491,8 @@ def render_team_dashboard() -> None:
     ]
     team_avg = float(np.mean([player[1] for player in roster]))
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Дашборд тренера команды")
-    st.caption("B2B wedge: стресс по ростеру, восстановление, синхронный тильт.")
+    st.subheader("Team Tilt Dashboard")
+    st.caption("B2B view: compare players, spot pressure, protect team readiness.")
     for name, tilt in roster:
         color = "#ff2b47" if tilt >= 75 else "#ffb84d" if tilt >= 45 else "#30ff91"
         st.markdown(
@@ -5549,7 +5504,7 @@ def render_team_dashboard() -> None:
             """,
             unsafe_allow_html=True,
         )
-    st.caption(f"Средний тильт команды: {team_avg:.1f}%")
+    st.caption(f"Team average tilt: {team_avg:.1f}%")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -5563,11 +5518,11 @@ def render_party_mode() -> None:
     }
     calm_members = sum(1 for value in party.values() if value < 45)
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Discord party-режим")
-    st.caption("B2C loop: командный recovery challenge после серии смертей.")
+    st.subheader("Discord Party Mode")
+    st.caption('B2C loop: recovery challenge')
     for name, tilt in party.items():
-        st.progress(int(tilt), text=f"{name}: {tilt:.0f}% тильт")
-    st.caption(f"Squad challenge: {calm_members}/{len(party)} спокойны. Держим чистые коммы.")
+        st.progress(int(tilt), text=f"{name}: {tilt:.0f}%      ")
+    st.caption(f"Squad challenge: {calm_members}/{len(party)} calm. Keep the team below tilt threshold.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -5580,10 +5535,10 @@ def render_platform_contracts() -> None:
             "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         },
         "implicit_labels": {
-            "death": "острый стресс / фрустрация после события",
-            "clutch": "высокий фокус / симпатическая активация",
-            "toxic_chat": "социальный стресс / голосовой зажим",
-            "loss_streak": "накопительная фрустрация / fatigue drift",
+            "death": "pressure_event",
+            "clutch": "high_pressure",
+            "toxic_chat": "social_stress",
+            "loss_streak": 'fatigue',
         },
         "input_telemetry": {
             "key_rate_5s": "spam keys / panic actions",
@@ -5598,8 +5553,8 @@ def render_platform_contracts() -> None:
         "inbox_path": str(EXTERNAL_EVENTS_INBOX_PATH),
     }
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Контракты интеграций")
-    st.caption("Overwolf, Twitch, Discord можно подключать через этот event contract.")
+    st.subheader("Platform Contracts")
+    st.caption('Overwolf, Twitch, Discord event contract')
     st.markdown(
         f'<div class="platform-contract">{html.escape(json.dumps(contract, ensure_ascii=False, indent=2))}</div>',
         unsafe_allow_html=True,
@@ -5609,9 +5564,9 @@ def render_platform_contracts() -> None:
 
 def render_foundation_model_lab() -> None:
     model_prediction = st.session_state.somatic_model_prediction or {}
-    openface = check_openface_bridge() if st.session_state.openface_status == "OpenFace не проверен" else {
+    openface = check_openface_bridge() if st.session_state.openface_status == 'OpenFace' else {
         "status": st.session_state.openface_status,
-        "ready": "готов" in st.session_state.openface_status.lower(),
+        "ready": "ready" in st.session_state.openface_status.lower(),
     }
     dataset_size = 0
     if AFFECTIVE_DATASET_PATH.exists():
@@ -5623,8 +5578,8 @@ def render_foundation_model_lab() -> None:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.subheader("Somatic Foundation Lab")
     st.caption(
-        "Auto-label база: приложение само определяет состояние, сохраняет confidence и evidence. "
-        "Self-report не требуется."
+        'Auto-label : , confidence evidence'
+        'session report'
     )
     st.markdown(
         f"""
@@ -5634,8 +5589,8 @@ def render_foundation_model_lab() -> None:
                 <div class="mini-value">{dataset_size}</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">Proto-модель</div>
-                <div class="mini-value">{html.escape(model_prediction.get('label', 'ожидает'))}</div>
+                <div class="mini-label">Proto label</div>
+                <div class="mini-value">{html.escape(model_prediction.get('label', 'pending'))}</div>
             </div>
             <div class="mini-card">
                 <div class="mini-label">Model confidence</div>
@@ -5651,8 +5606,8 @@ def render_foundation_model_lab() -> None:
     )
     st.caption(st.session_state.somatic_model_status)
     st.caption(st.session_state.openface_status)
-    st.caption(f"Датасет: {AFFECTIVE_DATASET_PATH}")
-    st.caption(f"Модель: {SOMATIC_MODEL_PATH}")
+    st.caption(f"Dataset path: {AFFECTIVE_DATASET_PATH}")
+    st.caption(f"Model path: {SOMATIC_MODEL_PATH}")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -5661,8 +5616,8 @@ def render_session_replay() -> None:
     st.subheader("Somatic Replay")
     if st.session_state.session_series:
         chart_data = {
-            "Тильт": [row["tilt"] for row in st.session_state.session_series],
-            "Сырой стресс": [row["raw"] for row in st.session_state.session_series],
+            "Tilt": [row["tilt"] for row in st.session_state.session_series],
+            "Raw stress": [row["raw"] for row in st.session_state.session_series],
             "Arousal": [row.get("arousal", 0) for row in st.session_state.session_series],
             "Jaw": [row.get("jaw", 0) for row in st.session_state.session_series],
             "Input chaos": [row.get("input", 0) for row in st.session_state.session_series],
@@ -5670,16 +5625,16 @@ def render_session_replay() -> None:
         }
         st.line_chart(chart_data, height=180)
     else:
-        st.caption("График тильта появится после запуска сканирования.")
+        st.caption("No replay data yet. Start a session or run Investor Demo Session.")
 
     if st.session_state.game_events:
-        st.caption("Последние игровые события")
+        st.caption("Game event markers")
         for event in list(st.session_state.game_events)[:5]:
             safe_event = html.escape(
-                f"{event['timestamp']} · {event['event']} · тильт={event['tilt_score']}%"
+                f"{event['timestamp']}    {event['event']}        ={event['tilt_score']}%"
             )
             st.markdown(f'<div class="event-row">{safe_event}</div>', unsafe_allow_html=True)
-    st.caption("Replay показывает causal loop: событие -> тело -> эмоция -> команда -> восстановление.")
+    st.caption("Replay causal loop: event -> body signal -> coach command -> recovery proof")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -5691,19 +5646,19 @@ def render_post_match_report() -> None:
         f"""
         <div class="mini-grid">
             <div class="mini-card">
-                <div class="mini-label">Пик тильта</div>
+                <div class="mini-label">Peak tilt</div>
                 <div class="mini-value">{report['peak_tilt']:.0f}%</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">Средний тильт</div>
+                <div class="mini-label">Average tilt</div>
                 <div class="mini-value">{report['avg_tilt']:.0f}%</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">События</div>
+                <div class="mini-label">Events</div>
                 <div class="mini-value">{report['event_count']}</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">Архетип</div>
+                <div class="mini-label">Fingerprint</div>
                 <div class="mini-value">{html.escape(report.get('fingerprint', {}).get('archetype', 'n/a'))}</div>
             </div>
             <div class="mini-card">
@@ -5721,12 +5676,12 @@ def render_post_match_report() -> None:
     st.markdown(
         f"""
         <div class="platform-contract">
-Сломало состояние: {html.escape(report.get('what_broke_state', 'n/a'))}
-Момент всплеска: {html.escape(report.get('breakdown_moment', 'n/a'))}
-Доминирующая эмоция: {html.escape(report.get('dominant_emotion', 'n/a'))}
-Событие-триггер: {html.escape(report.get('trigger_event', 'n/a'))}
-Команда recovery: {html.escape(report.get('winning_command', 'n/a'))}
-Следующее действие: {html.escape(report.get('coach_recommendation', 'n/a'))}
+        driver: {html.escape(report.get('what_broke_state', 'n/a'))}
+        peak moment: {html.escape(report.get('breakdown_moment', 'n/a'))}
+        dominant state: {html.escape(report.get('dominant_emotion', 'n/a'))}
+        trigger event: {html.escape(report.get('trigger_event', 'n/a'))}
+        recovery cue: {html.escape(report.get('winning_command', 'n/a'))}
+        recommendation: {html.escape(report.get('coach_recommendation', 'n/a'))}
         </div>
         """,
         unsafe_allow_html=True,
@@ -5736,8 +5691,8 @@ def render_post_match_report() -> None:
         f"""
         <div class="model-badge">
             <b>Recovery protocol:</b> {html.escape(protocol['name'])}<br>
-            <b>Команда:</b> {html.escape(protocol['cue'])}<br>
-            <b>Шаги:</b> {html.escape(' / '.join(protocol['steps']))}
+            <b>Cue:</b> {html.escape(protocol['cue'])}<br>
+            <b>Steps:</b> {html.escape(' / '.join(protocol['steps']))}
         </div>
         """,
         unsafe_allow_html=True,
@@ -5749,20 +5704,20 @@ def render_post_match_report() -> None:
 
 def render_somatic_logs() -> None:
     if not st.session_state.somatic_logs:
-        log_text = "ожидаю_поток_позы: true"
+        log_text = '_ _ : true'
     else:
         log_text = "\n".join(
             json.dumps(row, ensure_ascii=False) for row in st.session_state.somatic_logs
         )
 
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Сбор соматических данных")
+    st.subheader("Derived Signal Log")
     st.caption(
-        "Privacy mode: только landmark-точки и timestamps. Видео не сохраняется."
+        'Privacy mode: derived landmarks, timestamps and scores only'
         if st.session_state.landmark_only_logging
-        else "Runtime mode: поток метрик для локальной отладки."
+        else 'Runtime mode:'
     )
-    st.caption(f"CSV-лог: {SOMATIC_LOG_PATH}")
+    st.caption(f"JSONL path: {SOMATIC_LOG_PATH}")
     st.markdown(f'<div class="log-box">{html.escape(log_text)}</div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -5776,7 +5731,7 @@ def render_overlay_from_state(
     state = read_overlay_state()
     if not state:
         video_placeholder.info(
-            "Overlay ожидает данные. Открой основную страницу и запусти сканирование."
+            'Overlay'
         )
         return
 
@@ -5785,7 +5740,7 @@ def render_overlay_from_state(
     video_placeholder.markdown(
         f"""
         <div class="panel" style="min-height:260px; display:flex; flex-direction:column; justify-content:center;">
-            <div class="metric-label">OBS HUD без повторной камеры</div>
+            <div class="metric-label">OBS HUD                     </div>
             <div class="tilt-number" style="color:{color_hex};">{tilt:.0f}%</div>
             <div style="color:#8da69c;">{html.escape(state.get('updated_at', ''))}</div>
         </div>
@@ -5796,7 +5751,7 @@ def render_overlay_from_state(
         st.markdown(
             f"""
             <div class="meter-shell">
-                <div class="metric-label">Индикатор тильта</div>
+                <div class="metric-label">Tilt Risk</div>
                 <div class="tilt-meter">
                     <div class="tilt-fill" style="width:{tilt:.1f}%; background:{color_hex}; color:{color_hex};"></div>
                 </div>
@@ -5807,19 +5762,19 @@ def render_overlay_from_state(
         )
         prediction = state.get("prediction") or {}
         seconds = prediction.get("seconds")
-        label = f"{seconds:.0f}s до всплеска" if seconds is not None else prediction.get("label", "нет прогноза")
+        label = f"{seconds:.0f}s to spike" if seconds is not None else prediction.get("label", "collecting signal")
         metrics = state.get("metrics") or {}
-        st.caption(f"Прогноз: {label}")
+        st.caption(f"Prediction: {label}")
         st.caption(f"Face quality: {state.get('face_tracking_quality', 0)}%")
         if metrics.get("emotion_primary"):
             st.caption(
-                "Эмоция: "
-                f"{metrics.get('emotion_primary')} · "
-                f"{metrics.get('emotion_confidence', 0)}% · "
+                'Emotion: '
+                f"{metrics.get('emotion_primary')}    "
+                f"{metrics.get('emotion_confidence', 0)}%    "
                 f"arousal {metrics.get('emotional_arousal_score', 0)}%"
             )
     with alert_placeholder.container():
-        alert = state.get("coach_alert") or "Алерт появится при риске тильта"
+        alert = state.get("coach_alert") or "No coach alert yet."
         st.markdown(f'<div class="alert-box">{html.escape(alert)}</div>', unsafe_allow_html=True)
     with logs_placeholder.container():
         st.markdown(
@@ -5862,13 +5817,13 @@ def process_camera_frame(
                 logs_placeholder,
             )
             return
-        video_placeholder.info("Нажми «Запустить сканирование», чтобы включить webcam-анализ.")
+        video_placeholder.info("Camera is not active. Press Start session so the coach can read body-state signals.")
         return
 
     cap = st.session_state.camera
     if cap is None or not cap.isOpened():
-        st.session_state.pipeline_status = "Камера недоступна"
-        video_placeholder.error("Не удалось открыть веб-камеру. Проверь индекс камеры и разрешения.")
+        st.session_state.pipeline_status = "Camera failed"
+        video_placeholder.error("Camera is unavailable. Check camera index or close another app using it.")
         return
 
     frame_profile_started = time.perf_counter()
@@ -5876,8 +5831,8 @@ def process_camera_frame(
     ok, frame = cap.read()
     capture_ms = (time.perf_counter() - capture_started) * 1000
     if not ok:
-        st.session_state.pipeline_status = "Нет кадра с камеры"
-        video_placeholder.warning("Камера открыта, но кадр не получен.")
+        st.session_state.pipeline_status = "Frame read failed"
+        video_placeholder.warning("Camera frame was not received. Restart the session or try another camera index.")
         return
 
     frame = cv2.flip(frame, 1)
@@ -5939,18 +5894,18 @@ def process_camera_frame(
                 face_blendshapes = extract_face_blendshapes(face_results)
                 st.session_state.last_face_landmarks = face_landmarks
                 st.session_state.last_face_blendshapes = face_blendshapes
-                st.session_state.face_status = "Face Mesh активен"
+                st.session_state.face_status = 'Face Mesh'
             else:
                 face_landmarks = st.session_state.last_face_landmarks
                 if face_landmarks:
                     st.session_state.face_status = (
-                        f"Face Mesh кэш: кадр {st.session_state.frame_counter}"
+                        f"Face Mesh    :      {st.session_state.frame_counter}"
                     )
                 else:
                     st.session_state.smoothed_face_landmarks = None
-                    st.session_state.face_status = "Face Mesh: лицо не найдено"
+                    st.session_state.face_status = 'Face Mesh:'
         else:
-            st.session_state.face_status = "Face Mesh отключен или недоступен"
+            st.session_state.face_status = 'Face Mesh'
 
         st.session_state.face_tracking_quality = estimate_face_tracking_quality(
             face_landmarks,
@@ -5991,13 +5946,13 @@ def process_camera_frame(
             poll_llm_future()
         st.session_state.current_metrics = metrics
         write_overlay_state(metrics)
-        if not st.session_state.is_calibrating and st.session_state.pipeline_status.startswith("Калибровка"):
-            st.session_state.pipeline_status = "Поток позы активен"
-        elif not st.session_state.is_calibrating and st.session_state.pipeline_status != "Baseline готов: персональная модель активна":
-            st.session_state.pipeline_status = "Поток позы активен"
+        if not st.session_state.is_calibrating and st.session_state.pipeline_status.startswith("Calibrating"):
+            st.session_state.pipeline_status = "Running"
+        elif not st.session_state.is_calibrating and st.session_state.pipeline_status != 'baseline calibration':
+            st.session_state.pipeline_status = "Running"
     else:
         reset_runtime_state(keep_alert=True)
-        st.session_state.pipeline_status = "Скелет пока не найден"
+        st.session_state.pipeline_status = "No pose detected"
         st.session_state.face_tracking_quality = 0.0
         write_overlay_state(None)
 
@@ -6012,7 +5967,7 @@ def process_camera_frame(
     with right_metrics_placeholder.container():
         if st.session_state.overlay_mode:
             st.markdown(
-                '<div class="overlay-note">OBS Overlay Mode: компактный HUD для захвата стрима.</div>',
+                '<div class="overlay-note">OBS Overlay Mode: HUD .</div>',
                 unsafe_allow_html=True,
             )
         render_tilt_meter(metrics)
@@ -6022,7 +5977,7 @@ def process_camera_frame(
         render_baseline_panel()
         if not st.session_state.overlay_mode:
             render_fingerprint_panel()
-        st.caption(f"{st.session_state.pipeline_status} · {st.session_state.face_status}")
+        st.caption(f"{st.session_state.pipeline_status}    {st.session_state.face_status}")
 
     with alert_placeholder.container():
         render_alert()
@@ -6095,28 +6050,7 @@ def main() -> None:
     render_styles()
 
     st.markdown(
-        """
-        <div class="hero-shell">
-            <div class="hero-top">
-                <div class="brand-lockup">
-                    <div class="brand-mark">KA</div>
-                    <div>
-                        <div class="app-title">Kinaesthetic AI</div>
-                        <div class="app-subtitle">
-                            Премиальный somatic AI cockpit: камера считывает тело, лицо, голос и input-паттерны,
-                            а коуч возвращает контроль до тильта.
-                        </div>
-                    </div>
-                </div>
-                <div class="hero-badges">
-                    <span class="hero-badge">a16z Speedrun MVP</span>
-                    <span class="hero-badge">Webcam-first</span>
-                    <span class="hero-badge">User-owned data</span>
-                    <span class="hero-badge">Somatic Foundation Model</span>
-                </div>
-            </div>
-        </div>
-        """,
+        """English documentation cleaned for investor demo.""",
         unsafe_allow_html=True,
     )
 
@@ -6128,15 +6062,15 @@ def main() -> None:
     with right:
         render_quick_guide()
         st.selectbox(
-            "Режим экрана",
+            "Workspace mode",
             ["Pitch cockpit", "Operator cockpit", "Research lab"],
             key="ui_mode",
             format_func=lambda mode: {
-                "Pitch cockpit": "Питч-экран: красиво и понятно",
-                "Operator cockpit": "Оператор: коучинг и тренинг",
-                "Research lab": "Лаборатория: данные и модели",
+                "Pitch cockpit": "Pitch cockpit - demo ready",
+                "Operator cockpit": "Operator cockpit - live monitoring",
+                "Research lab": "Research lab - diagnostics",
             }.get(mode, mode),
-            help="Выбирает, что показывать ниже: питч для инвестора, рабочий экран коуча или глубокую исследовательскую телеметрию.",
+            help="Choose how much operational detail to show.",
         )
         render_model_stack_panel()
         render_llm_health_panel()
@@ -6144,94 +6078,94 @@ def main() -> None:
         if st.session_state.get("ui_mode") == "Research lab":
             render_product_module_matrix()
         else:
-            with st.expander("⚙ Demo & investor tools", expanded=False):
+            with st.expander('Demo & investor tools', expanded=False):
                 render_investor_thesis_panel()
 
-        with st.expander("Режимы и источники данных", expanded=False):
+        with st.expander("Settings", expanded=False):
             st.checkbox(
-                "Показывать подсказки",
+                "Guided UI",
                 key="guided_ui",
-                help="Включает короткие объяснения прямо в интерфейсе. Для финального питча можно выключить.",
+                help="Show simplified player guidance and hide noisy research panels.",
             )
             st.selectbox(
                 "Emotion backend",
                 [
-                    "Realtime MediaPipe: 478 точек + 52 blendshapes",
+                    'Realtime MediaPipe: 478 + 52 blendshapes',
                     "OpenFace AU verifier: offline Action Units",
                     "DeepFace/AffectNet research: offline validation",
                 ],
                 key="emotion_backend",
-                help="Realtime MediaPipe работает прямо сейчас. OpenFace/DeepFace — исследовательские усилители точности для offline-проверки датасета.",
+                help="Realtime MediaPipe runs locally. OpenFace/DeepFace are offline validation options.",
             )
             st.checkbox(
-                "OBS overlay-режим",
+                "OBS overlay mode",
                 key="overlay_mode",
-                help="Компактный HUD для OBS Browser Source: http://localhost:8501/?overlay=1",
+                help="HUD for OBS Browser Source: http://localhost:8501/?overlay=1",
             )
             st.checkbox(
-                "Приватность: сохранять только landmark-точки",
+                "Landmark-only logging",
                 key="landmark_only_logging",
-                help="Видео не сохраняем. В датасет пишутся координаты, признаки, события, confidence и recovery.",
+                help="Store derived landmarks, scores, confidence and recovery only. No raw video.",
             )
             st.checkbox(
-                "Auto-label датасет для Somatic Foundation Model",
+                'Auto-label Somatic Foundation Model',
                 key="auto_dataset_enabled",
-                help="Приложение само ставит гипотезу состояния: фрустрация, фокус, усталость, стресс, контроль.",
+                help="Collect derived body-state signals, labels and recovery outcomes.",
             )
             st.checkbox(
-                "Voice layer: микрофон, тон, темп речи",
+                "Voice proxy",
                 key="enable_voice_layer",
-                help="Опционально считывает громкость, proxy высоты голоса, темп речи и голосовой зажим.",
+                help="Use voice tension proxy if available; no raw audio is stored.",
             )
             st.checkbox(
                 "Mouse/keyboard telemetry",
                 key="enable_input_telemetry",
-                help="Опционально считывает частоту кликов, клавиш и хаотичность движения мыши как proxy тильта.",
+                help="Use mouse/keyboard proxy events, not raw gameplay footage.",
             )
             st.checkbox(
                 "Somatic Autopilot",
                 key="autopilot_enabled",
-                help="Автоматически запускает micro-reset до красного тильта, если видит будущий jaw-lock/arousal spike.",
+                help="Suggest short jaw/shoulder reset drills.",
             )
             st.checkbox(
-                "Использовать Gemini для алертов",
+                "Cloud LLM coach wording",
                 key="use_llm_alerts",
-                help="Gemini работает через cloud API. Если сеть/квота недоступны, приложение мгновенно вернётся к локальным командам.",
+                help="Use Groq/Gemini for non-critical coach wording. Local alerts still work.",
             )
             st.selectbox(
-                "Режим ИИ-коуча",
+                "Coach style",
                 list(COACH_MODE_PROMPTS.keys()),
                 key="coach_mode",
-                help="Меняет стиль короткой команды: жестко, спокойно, pro esports или через биомеханику.",
+                help="Choose the tone for short coaching commands.",
             )
             st.text_input(
-                "Groq API ключ",
+                'Groq API',
                 type="password",
                 key="typed_groq_api_key",
                 value=os.getenv("GROQ_API_KEY", ""),
-                placeholder="gsk... (основной быстрый provider)",
+                placeholder='gsk... ( provider)',
             )
             st.text_input(
-                "Gemini API ключ",
+                'Gemini API',
                 type="password",
                 key="typed_gemini_api_key",
                 value=os.getenv("GEMINI_API_KEY", ""),
-                placeholder="AIza... (резерв, если Groq недоступен)",
+                placeholder='AIza... ( , Groq )',
             )
             st.text_input(
-                "OpenAI-compatible Base URL (опционально)",
+                "OpenAI-compatible Base URL (optional)",
                 key="typed_base_url",
                 value=os.getenv("OPENAI_BASE_URL", ""),
-                placeholder="Оставьте пустым для Gemini",
+                placeholder='Gemini',
             )
             st.text_input(
-                "Модель",
+                "LLM model",
                 key="typed_model",
                 value=os.getenv("GROQ_MODEL", os.getenv("GEMINI_MODEL", "llama-3.1-8b-instant")),
                 placeholder="llama-3.1-8b-instant",
             )
             st.number_input(
-                "Таймаут LLM, секунд",
+                "LLM timeout, sec",
                 min_value=3,
                 max_value=60,
                 value=8,
@@ -6239,143 +6173,143 @@ def main() -> None:
                 key="llm_timeout_seconds",
             )
 
-        with st.expander("Камера и чувствительность", expanded=False):
+        with st.expander("Camera & CV", expanded=False):
             st.number_input(
-                "Индекс камеры",
+                "Camera index",
                 min_value=0,
                 max_value=5,
                 value=0,
                 key="camera_index",
-                help="Обычно 0 — встроенная веб-камера. Если камера не открылась, попробуй 1 или 2.",
+                help="Usually 0. Try 1 or 2 if another camera is connected.",
             )
             st.checkbox(
-                "Включить Face Landmarker для эмоций и челюсти",
+                'Face Landmarker',
                 value=True,
                 key="enable_face_mesh",
-                help="Включает до 478 точек лица и 52 blendshape-коэффициента: глаза, брови, рот, челюсть.",
+                help="478 face points and 52 blendshape coefficients for expression tension.",
             )
             st.checkbox(
-                "Показывать облако точек лица",
+                "Show face points overlay",
                 key="show_face_points_overlay",
-                help="Рисует на видео много точек лица. Красиво для демо, но может немного грузить слабый ПК.",
+                help="Draw face landmarks on the local preview.",
             )
             st.checkbox(
-                "Быстрый режим для слабого компьютера",
+                "Fast mode",
                 key="fast_mode",
-                help="Ограничивает камеру 640x360/15fps и реже считает Face Landmarker.",
+                help="Use lower resolution and lighter tracking for better FPS.",
             )
             st.selectbox(
-                "Разрешение камеры",
+                "Camera resolution",
                 ["640x360", "960x540", "1280x720"],
                 key="camera_resolution",
-                help="Для стабильного realtime лучше 640x360. Для красивого демо на мощном ПК можно 960x540.",
+                help="640x360 is best for realtime; 960x540 is sharper.",
             )
             st.slider(
-                "FPS камеры",
+                'FPS',
                 min_value=10,
                 max_value=30,
                 value=15,
                 step=1,
                 key="camera_fps",
-                help="Больше FPS выглядит плавнее, но сильнее грузит CPU.",
+                help="Higher FPS costs more CPU.",
             )
             st.slider(
-                "Face Mesh: считать раз в N кадров",
+                'Face Mesh: N',
                 min_value=1,
                 max_value=8,
                 value=3,
                 step=1,
                 key="face_every_n_frames",
-                help="1 = точнее, но тяжелее. 3-5 = стабильнее на слабом ноутбуке.",
+                help="1 = every frame. 3-5 = lighter CPU load.",
             )
             st.slider(
-                "Порог поднятых плеч",
+                "Shoulder raise ratio threshold",
                 min_value=0.38,
                 max_value=0.86,
                 value=0.58,
                 step=0.01,
                 key="shoulder_raise_ratio_threshold",
-                help="Ниже значение = система строже к поднятым плечам. После калибровки важнее персональный baseline.",
+                help="Calibrate neutral posture first for best results.",
             )
             st.slider(
-                "Чувствительность плечевого блока",
+                "Shoulder raise sensitivity",
                 min_value=0.06,
                 max_value=0.32,
                 value=0.18,
                 step=0.01,
                 key="shoulder_raise_sensitivity",
-                help="Меньше значение = резче реакция на плечевой блок.",
+                help="Lower values are more sensitive.",
             )
             st.slider(
-                "Порог асимметрии, % ширины плеч",
+                "Asymmetry threshold, %",
                 min_value=2.0,
                 max_value=18.0,
                 value=5.0,
                 step=0.5,
                 key="asymmetry_threshold_percent",
-                help="Допустимый перекос плеч. Ниже = чаще ловим наклон к монитору.",
+                help="Lower values detect smaller shoulder imbalance.",
             )
             st.slider(
-                "Порог челюстного зажима",
+                "Jaw clench ratio threshold",
                 min_value=0.006,
                 max_value=0.045,
                 value=0.018,
                 step=0.001,
                 key="jaw_clench_ratio_threshold",
-                help="Порог закрытости/зажима челюсти. Лучше сначала сделать relaxed/clenched калибровку.",
+                help="Use relaxed/clenched jaw calibration for a personal threshold.",
             )
             st.slider(
-                "Сглаживание позы",
+                "Pose smoothing alpha",
                 min_value=0.05,
                 max_value=0.60,
                 value=0.18,
                 step=0.01,
                 key="pose_smoothing_alpha",
-                help="Сглаживает дрожание скелета. Ниже = стабильнее, выше = быстрее реакция.",
+                help="Lower is smoother; higher is more responsive.",
             )
             st.slider(
-                "Сглаживание лица",
+                "Face smoothing alpha",
                 min_value=0.05,
                 max_value=0.60,
                 value=0.22,
                 step=0.01,
                 key="face_smoothing_alpha",
-                help="Сглаживает точки лица, чтобы эмоции не прыгали от одного шумного кадра.",
+                help="Lower is smoother; higher is more responsive.",
             )
             st.slider(
-                "Dead zone дрожания точек, px",
+                "Dead zone, px",
                 min_value=0.0,
                 max_value=12.0,
                 value=4.0,
                 step=0.5,
                 key="dead_zone_px",
-                help="Игнорирует микродрожание точек в пикселях. Если точки сами двигаются — увеличь.",
+                help="Ignore tiny jitter under this pixel threshold.",
             )
             st.slider(
-                "Порог LLM-алерта",
+                "LLM alert threshold",
                 min_value=50,
                 max_value=95,
                 value=75,
                 step=1,
                 key="alert_threshold",
-                help="При каком Tilt Meter показывать команду коуча.",
+                help="Tilt threshold for cloud coach wording.",
             )
             st.number_input(
-                "Пауза между LLM-вызовами, секунд",
+                "LLM cooldown, sec",
                 min_value=10,
                 max_value=240,
                 value=60,
                 step=10,
                 key="llm_cooldown_seconds",
-                help="Защищает от частых вызовов Gemini и сетевых лагов.",
+                help="Minimum time between cloud LLM coach calls.",
             )
 
         controls = st.columns(2)
         with controls[0]:
             if st.button(
-                "Запустить сканирование",
+                "Start session",
                 use_container_width=True,
-                help="Открывает камеру и запускает pose/face/emotion анализ.",
+                help="Start camera, pose, face and emotion analysis.",
             ):
                 close_camera()
                 reset_runtime_state()
@@ -6385,161 +6319,127 @@ def main() -> None:
                 st.session_state.somatic_logs.clear()
                 st.session_state.external_event_offset = 0
                 st.session_state.creator_viewer_resets = 0
-                width, height, fps = selected_camera_settings()
-                st.session_state.camera = open_camera(
-                    st.session_state.camera_index,
-                    width,
-                    height,
-                    fps,
-                )
-                st.session_state.running = st.session_state.camera is not None
-                st.session_state.pipeline_status = (
-                    "Поток позы активен" if st.session_state.running else "Камера недоступна"
-                )
+                start_camera_session("Running")
         with controls[1]:
             if st.button(
-                "Стоп",
+                "Stop session",
                 use_container_width=True,
-                help="Останавливает камеру и оставляет собранный отчет на экране.",
+                help="Stop camera and pause analysis.",
             ):
                 st.session_state.running = False
                 close_camera()
-                st.session_state.pipeline_status = "Сканирование остановлено"
+                st.session_state.pipeline_status = "Stopped"
 
         if st.button(
-            "Сбросить тильт / алерт",
+            "Reset tilt",
             use_container_width=True,
-            help="Сбрасывает накопленный Tilt Meter и текущую команду коуча.",
+            help="Clear accumulated tilt/frustration state.",
         ):
             reset_runtime_state()
             st.session_state.coach_alert = ""
 
         if st.button(
-            "Калибровать нейтраль 10 сек",
+            "Calibrate (10 sec)",
             use_container_width=True,
-            help="Сохраняет твою нормальную посадку: плечи, асимметрия, челюсть. Это резко повышает точность.",
+            help="Collect neutral posture, shoulders and jaw baseline.",
         ):
             if not st.session_state.running:
-                close_camera()
-                width, height, fps = selected_camera_settings()
-                st.session_state.camera = open_camera(
-                    st.session_state.camera_index,
-                    width,
-                    height,
-                    fps,
-                )
-                st.session_state.running = st.session_state.camera is not None
+                start_camera_session("Calibration camera active")
             if st.session_state.running:
                 start_calibration()
             else:
-                st.session_state.pipeline_status = "Камера недоступна для калибровки"
+                st.session_state.pipeline_status = "Camera failed. Start session first or check camera index."
 
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.subheader("Калибровка челюсти")
+        st.subheader("Jaw calibration")
         jaw_cols = st.columns(2)
         with jaw_cols[0]:
             if st.button(
-                "Записать relaxed",
+                'relaxed',
                 use_container_width=True,
-                help="Сиди спокойно и расслабь челюсть. Это baseline для нормального состояния.",
+                help="Capture relaxed jaw as the neutral example.",
             ):
                 if not st.session_state.running:
-                    close_camera()
-                    width, height, fps = selected_camera_settings()
-                    st.session_state.camera = open_camera(
-                        st.session_state.camera_index,
-                        width,
-                        height,
-                        fps,
-                    )
-                    st.session_state.running = st.session_state.camera is not None
+                    start_camera_session("Jaw calibration camera active")
                 if st.session_state.running:
                     start_jaw_calibration_phase("relaxed")
         with jaw_cols[1]:
             if st.button(
-                "Записать clenched",
+                'clenched',
                 use_container_width=True,
-                help="На 1-2 секунды слегка сожми челюсть. Это teach-example для зажима.",
+                help="Capture a short clenched-jaw example.",
             ):
                 if not st.session_state.running:
-                    close_camera()
-                    width, height, fps = selected_camera_settings()
-                    st.session_state.camera = open_camera(
-                        st.session_state.camera_index,
-                        width,
-                        height,
-                        fps,
-                    )
-                    st.session_state.running = st.session_state.camera is not None
+                    start_camera_session("Jaw calibration camera active")
                 if st.session_state.running:
                     start_jaw_calibration_phase("clenched")
-        st.caption("Сначала расслабь челюсть и запиши relaxed, затем сожми и запиши clenched.")
+        st.caption("Save relaxed and clenched jaw examples to improve jaw tension detection.")
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.subheader("Поиск и Copilot")
+        st.subheader('Copilot')
         st.text_input(
             "Somatic Search",
             key="somatic_search_query",
             placeholder="jaw lock after death / recovery faster than 15 sec / input spam",
-            help="Ищет моменты в текущей сессии по body-language признакам и игровым событиям.",
+            help='body-language',
         )
-        if st.button("Search somatic moments", use_container_width=True, help="Найти моменты в replay по текущему запросу."):
+        if st.button("Search somatic moments", use_container_width=True, help='replay'):
             st.session_state.somatic_search_results = search_somatic_moments(st.session_state.somatic_search_query)
         st.text_input(
             "Coach Copilot question",
             key="copilot_question",
-            placeholder="Почему я сломался? Что делать перед clutch?",
-            help="Локальный copilot отвечает по текущей сессии без обращения к cloud LLM.",
+            placeholder='clutch',
+            help='copilot cloud LLM',
         )
-        if st.button("Ask Coach Copilot", use_container_width=True, help="Получить короткий ответ по текущей сессии."):
+        if st.button("Ask Coach Copilot", use_container_width=True, help="Ask about current body-state patterns and recovery."):
             st.session_state.copilot_answer = answer_coach_copilot(st.session_state.copilot_question)
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.subheader("Игровые события")
+        st.subheader("Game event markers")
         event_cols = st.columns(2)
         with event_cols[0]:
-            if st.button("Смерть", use_container_width=True, help="Имитация игрового события death. Нужно для implicit labels."):
+            if st.button("Death", use_container_width=True, help="Mark a death/round loss moment."):
                 record_game_event("death")
-            if st.button("Серия поражений", use_container_width=True, help="Помечает накопительную фрустрацию после серии неудач."):
+            if st.button("Loss streak", use_container_width=True, help="Mark a repeated loss sequence."):
                 record_game_event("loss_streak")
         with event_cols[1]:
-            if st.button("Клатч", use_container_width=True, help="Помечает момент высокого фокуса/давления."):
+            if st.button("Clutch", use_container_width=True, help="Mark a clutch/high-pressure moment."):
                 record_game_event("clutch")
-            if st.button("Токсичный чат", use_container_width=True, help="Помечает социальный стресс, голосовой и лицевой зажим."):
+            if st.button("Toxic chat", use_container_width=True, help="Mark a toxic chat or comms event."):
                 record_game_event("toxic_chat")
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="panel">', unsafe_allow_html=True)
         st.subheader("Somatic Foundation Model")
         st.text_input(
-            "ID профиля игрока",
+            'ID',
             key="user_profile_id",
             placeholder="arseny_main / player_001 / streamer_demo",
-            help="Имя персонального профиля: baseline, челюсть и модель будут сохраняться отдельно под этого человека.",
+            help='baseline calibration',
         )
         st.text_input(
-            "Путь к OpenFace FeatureExtraction.exe",
+            'OpenFace FeatureExtraction.exe',
             key="openface_executable",
             placeholder=r"C:\Users\user\Desktop\MeirX\OpenFace\FeatureExtraction.exe",
-            help="Опциональный research-grade слой Action Units. Для MVP можно оставить пустым.",
+            help='research-grade Action Units. MVP',
         )
         foundation_cols = st.columns(2)
         with foundation_cols[0]:
-            if st.button("Проверить OpenFace AU", use_container_width=True, help="Проверяет, найден ли внешний OpenFace анализатор Action Units."):
+            if st.button("Check OpenFace AU", use_container_width=True, help="Check the optional OpenFace Action Units bridge."):
                 check_openface_bridge()
         with foundation_cols[1]:
-            if st.button("Обучить proto-модель", use_container_width=True, help="Обучает первую nearest-centroid модель на auto-label датасете."):
+            if st.button("Train Proto Model", use_container_width=True, help="Train the nearest-centroid auto-label model."):
                 train_somatic_proto_model()
         profile_cols = st.columns(2)
         with profile_cols[0]:
-            if st.button("Сохранить personal baseline", use_container_width=True, help="Сохраняет персональные калибровки текущего пользователя."):
+            if st.button("Save profile", use_container_width=True, help="Save current baseline and calibration profile."):
                 save_personal_profile()
         with profile_cols[1]:
-            if st.button("Загрузить personal baseline", use_container_width=True, help="Загружает baseline выбранного ID профиля."):
+            if st.button("Load profile", use_container_width=True, help="Load saved baseline and calibration profile."):
                 load_personal_profile()
-        if st.button("Обновить Somatic Twin Memory", use_container_width=True, help="Запоминает текущую сессию: signature, body driver, recovery и эффективность команды."):
+        if st.button("Update Somatic Twin Memory", use_container_width=True, help="Save signature, body driver and recovery outcome."):
             update_somatic_twin_memory()
         st.caption(st.session_state.somatic_model_status)
         st.caption(st.session_state.openface_status)
@@ -6547,19 +6447,19 @@ def main() -> None:
         st.caption(st.session_state.somatic_twin_status)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        with st.expander("⚙ Demo & investor tools", expanded=False):
+        with st.expander('Demo & investor tools', expanded=False):
             st.markdown('<div class="panel">', unsafe_allow_html=True)
-            st.subheader("Демо-интеграции")
-            if st.button("Симулировать !reset от зрителя", use_container_width=True, help="Показывает, как Twitch/chat может запускать recovery cue."):
+            st.subheader("Demo integrations")
+            if st.button("Simulate viewer reset", use_container_width=True, help="Adds a viewer-triggered reset cue for demo purposes."):
                 st.session_state.creator_viewer_resets += 1
-                st.session_state.coach_alert = "ЧАТ: ОПУСТИ ПЛЕЧИ. СБРОСЬ."
-            if st.button("Собрать Investor Demo Session", use_container_width=True, help="Создает идеальную демо-сессию без камеры: death → tilt → coach → recovery."):
+                st.session_state.coach_alert = "CHAT RESET: DROP SHOULDERS. EXHALE."
+            if st.button("Build Investor Demo Session", use_container_width=True, help="Creates a scripted death -> tilt -> coach -> recovery session."):
                 generate_investor_demo_session()
-            if st.button("Экспортировать Pitch Report", use_container_width=True, help="Создает Markdown-отчет: breakdown, recovery, data moat и рекомендация."):
+            if st.button("Export Session Report", use_container_width=True, help="Creates a Markdown report with breakdown, recovery and data moat."):
                 export_pitch_report()
-            if st.button("Экспортировать Founder Deck Pack", use_container_width=True, help="Собирает evidence.json, proof card и pitch report в папку для заявки."):
+            if st.button("Export Founder Deck Pack", use_container_width=True, help="Exports investor evidence JSON files."):
                 export_founder_deck_package()
-            if st.button("Записать demo-событие Overwolf: смерть", use_container_width=True, help="Пишет JSONL-событие, будто его прислал Overwolf/game bridge."):
+            if st.button("Write Overwolf Demo Event", use_container_width=True, help="Writes a derived JSONL game event without raw video."):
                 DATA_DIR.mkdir(parents=True, exist_ok=True)
                 payload = {
                     "event": "death",
@@ -6569,9 +6469,9 @@ def main() -> None:
                 }
                 with EXTERNAL_EVENTS_INBOX_PATH.open("a", encoding="utf-8") as file:
                     file.write(json.dumps(payload, ensure_ascii=False) + "\n")
-                st.session_state.pipeline_status = "Demo-событие Overwolf записано"
+                st.session_state.pipeline_status = "Overwolf demo event written"
             if st.session_state.last_exported_report_path:
-                st.caption(f"Последний pitch report: {st.session_state.last_exported_report_path}")
+                st.caption(f"Last pitch report: {st.session_state.last_exported_report_path}")
             if st.session_state.last_founder_deck_path:
                 st.caption(f"Founder deck pack: {st.session_state.last_founder_deck_path}")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -6592,10 +6492,11 @@ def main() -> None:
         )
 
     if hasattr(st, "fragment"):
-        st.fragment(run_every="180ms")(camera_tick)()
+        st.fragment(run_every="300ms")(camera_tick)()
     else:
         camera_tick()
 
 
 if __name__ == "__main__":
     main()
+

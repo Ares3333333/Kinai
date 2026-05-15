@@ -134,7 +134,7 @@ try {
 
     $overlayProcess = Start-Process -FilePath $browser -ArgumentList @(
         "--app=$OverlayUrl",
-        "--window-size=360,260",
+        "--window-size=380,250",
         "--window-position=40,40"
     ) -PassThru
     Write-LauncherLog "Overlay process PID: $($overlayProcess.Id)"
@@ -148,8 +148,8 @@ try {
             "-Seconds", "7200",
             "-X", "40",
             "-Y", "40",
-            "-Width", "360",
-            "-Height", "260"
+            "-Width", "380",
+            "-Height", "250"
         ) -WindowStyle Hidden | Out-Null
         Write-LauncherLog "TopMost watchdog started"
     }

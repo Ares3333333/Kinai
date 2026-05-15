@@ -43,8 +43,10 @@ function statusCopy(state) {
   if (state.mode === "stale") return "STALE: signal old";
   if (state.mode === "offline") return "OFFLINE: no analysis";
   if (state.alert_level === "low_signal") return "Low signal";
+  if (state.alert_level === "danger") return "High tilt";
   if (state.alert_level === "recovery") return "Recovery improving";
   if (state.alert_level === "warning") return "Tilt rising";
+  if (state.alert_level === "calm") return "Calm";
   return "Ready";
 }
 
@@ -53,6 +55,7 @@ function recommendationCopy(state) {
   if (state.mode === "stale") return "Signal stale. Check /play";
   if (state.mode === "demo") return "Demo mode";
   if (state.alert_level === "low_signal") return "Improve light. Face the camera.";
+  if (state.alert_level === "danger") return state.recommendation || "Reset now. Exhale. Drop shoulders.";
   if (state.alert_level === "recovery") return state.recommendation || "Hold the reset.";
   if (state.alert_level === "warning") {
     return state.recommendation || "Soft jaw. Shoulders down. Long exhale.";
@@ -102,17 +105,19 @@ function render(state) {
 
 async function refresh() {
   try {
-    const [stateResponse, healthResponse] = await Promise.all([
+    const [browserResponse, stateResponse, healthResponse] = await Promise.all([
+      fetch("/api/live-browser-state", { cache: "no-store" }),
       fetch("/api/state", { cache: "no-store" }),
       fetch("/api/system-health", { cache: "no-store" }),
     ]);
-    if (!stateResponse.ok) return;
-    const state = await stateResponse.json();
+    const browserState = browserResponse.ok ? await browserResponse.json() : null;
+    const state = stateResponse.ok ? await stateResponse.json() : {};
     const health = healthResponse.ok ? await healthResponse.json() : null;
+    const liveState = browserState?.is_live ? browserState : state;
     render({
-      ...state,
-      mode: String(state.mode || health?.mode || "offline").toLowerCase(),
-      numbers_visible: state.numbers_visible ?? health?.numbers_visible ?? true,
+      ...liveState,
+      mode: String(liveState.mode || health?.mode || "offline").toLowerCase(),
+      numbers_visible: liveState.numbers_visible ?? health?.numbers_visible ?? true,
     });
   } catch {
     // Keep the overlay visually stable while the site server restarts.
