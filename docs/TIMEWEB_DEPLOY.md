@@ -1,4 +1,4 @@
-# Timeweb Cloud Deploy
+﻿# Timeweb Cloud Deploy
 
 Goal: one public HTTPS link for testers and investors, with the site and API running from the same Python service.
 
@@ -10,7 +10,7 @@ This repo already has the required `Dockerfile`:
 
 - builds from `python:3.11-slim`;
 - installs `requirements-site.txt`;
-- exposes `8502`;
+- exposes `8080`;
 - starts `site_server.py`.
 
 Timeweb will place the app behind Nginx and issue a Let's Encrypt certificate for the technical domain. Later you can attach your own domain.
@@ -38,14 +38,14 @@ Create an App Platform app from the GitHub repo:
 Deploy type: Dockerfile
 Project directory: repository root
 Health check path: /healthz
-Port: detected from EXPOSE 8502
+Port: detected from EXPOSE 8080
 ```
 
 Environment variables:
 
 ```text
 HOST=0.0.0.0
-PORT=8502
+PORT=8080
 STORAGE_BACKEND=supabase
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=replace-me
@@ -96,7 +96,7 @@ Run the app with Docker:
 
 ```powershell
 docker build -t kinaesthetic-ai .
-docker run -d --name kinaesthetic-ai --restart unless-stopped --env-file .env.production -p 8502:8502 kinaesthetic-ai
+docker run -d --name kinaesthetic-ai --restart unless-stopped --env-file .env.production -p 8080:8080 kinaesthetic-ai
 ```
 
-Put Caddy or Nginx in front of it for HTTPS and proxy to `127.0.0.1:8502`.
+Put Caddy or Nginx in front of it for HTTPS and proxy to `127.0.0.1:8080`.

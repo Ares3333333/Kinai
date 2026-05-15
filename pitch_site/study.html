@@ -1,9 +1,9 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kinaesthetic AI · validation study</title>
+    <title>Kinaesthetic AI - validation study</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -20,35 +20,35 @@
     <main class="content-page">
       <section class="content-hero">
         <p class="section-kicker">Validation Study Mode</p>
-        <h1>20–50 игроков. 150+ labels. Честная проверка.</h1>
+        <h1>20-50 players. 150+ labels. Honest validation.</h1>
         <p class="hero-subtitle">
-          Это режим исследования: фиксируем тестера, игру, старт/конец сессии,
-          hotkey labels и короткий post-session feedback. Raw video/audio не пишутся.
+          This is research mode: we record tester id, game, session start/end,
+          hotkey labels, and short post-session feedback. Raw video/audio is not stored.
         </p>
       </section>
 
       <section class="study-grid">
         <article class="demo-panel">
-          <p class="section-kicker">Сессия</p>
+          <p class="section-kicker">Session</p>
           <form class="feedback-form" id="studyForm">
             <div class="form-row">
-              <label for="testerId">ID тестера</label>
+              <label for="testerId">Tester ID</label>
               <input id="testerId" name="tester_id" placeholder="player_001" required />
             </div>
             <div class="form-row">
-              <label for="game">Игра</label>
+              <label for="game">Game</label>
               <input id="game" name="game" placeholder="Valorant / CS / Apex" />
             </div>
             <div class="hero-actions">
-              <button class="primary" type="button" id="startStudy">Старт сессии</button>
-              <button class="secondary" type="button" id="endStudy">Конец сессии</button>
+              <button class="primary" type="button" id="startStudy">Start session</button>
+              <button class="secondary" type="button" id="endStudy">End session</button>
             </div>
-            <p class="muted" id="studyStatus">Готово к записи validation events.</p>
+            <p class="muted" id="studyStatus">Ready to record validation events.</p>
           </form>
           <div class="study-hotkeys">
-            <button data-label="felt_tension">T · почувствовал тильт</button>
-            <button data-label="helped">H · команда помогла</button>
-            <button data-label="false_alert">F · false alert</button>
+            <button data-label="felt_tension">T - felt tilt</button>
+            <button data-label="helped">H - command helped</button>
+            <button data-label="false_alert">F - false alert</button>
           </div>
         </article>
 
@@ -56,18 +56,18 @@
           <p class="section-kicker">Post-session</p>
           <form class="feedback-form" id="postStudyForm">
             <div class="form-row">
-              <label for="feltAt">Когда почувствовал напряжение?</label>
-              <input id="feltAt" name="felt_at" placeholder="после смерти / clutch / токсичный чат" />
+              <label for="feltAt">When did you feel tension?</label>
+              <input id="feltAt" name="felt_at" placeholder="after death / clutch / toxic chat" />
             </div>
             <div class="form-row">
-              <label for="useful">Что было полезно?</label>
+              <label for="useful">What was useful?</label>
               <textarea id="useful" name="useful"></textarea>
             </div>
             <div class="form-row">
-              <label for="bug">Что было ложным или раздражающим?</label>
+              <label for="bug">What was false or annoying?</label>
               <textarea id="bug" name="bug"></textarea>
             </div>
-            <button class="primary" type="submit">Сохранить post-session feedback</button>
+            <button class="primary" type="submit">Save post-session feedback</button>
           </form>
         </article>
       </section>
@@ -87,4 +87,3 @@
     <script type="module" src="/study.js"></script>
   </body>
 </html>
-

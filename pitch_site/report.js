@@ -1,4 +1,4 @@
-const pct = (value) => `${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}%`;
+﻿const pct = (value) => `${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}%`;
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -8,7 +8,7 @@ const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 }[char]));
 
 function card(title, body) {
-  return `<article class="content-card"><strong>${escapeHTML(title)}</strong><p>${escapeHTML(body || "—")}</p></article>`;
+  return `<article class="content-card"><strong>${escapeHTML(title)}</strong><p>${escapeHTML(body || "--")}</p></article>`;
 }
 
 function chartRow(label, value) {
@@ -20,7 +20,7 @@ function renderReplay(replay) {
   if (!root) return;
   const points = replay.points || [];
   if (!points.length) {
-    root.innerHTML = `<p class="muted">${escapeHTML(replay.message || "Нет replay-данных. Запустите live session.")}</p>`;
+    root.innerHTML = `<p class="muted">${escapeHTML(replay.message || "No replay data yet. Start a live session.")}</p>`;
     return;
   }
   const width = 980;
@@ -57,7 +57,7 @@ function renderReplay(replay) {
       <polyline class="replay-line" points="${line}"></polyline>
       ${markerSvg}
     </svg>
-    <p class="muted">Samples: ${points.length} · peak ${replay.peak_tilt ?? "--"} · recovery low ${replay.recovery_tilt ?? "--"}</p>
+    <p class="muted">Samples: ${points.length} - peak ${replay.peak_tilt ?? "--"} - recovery low ${replay.recovery_tilt ?? "--"}</p>
   `;
 }
 
@@ -72,42 +72,42 @@ async function loadReport() {
   ].join("");
 
   document.getElementById("reportCards").innerHTML = [
-    card("Что вызвало тильт", report.what_triggered_tilt),
-    card("Когда начался паттерн", report.pattern_started_at || "не зафиксировано"),
-    card("Скорость восстановления", report.recovery_seconds ? `${report.recovery_seconds} сек` : "нужно больше live данных"),
-    card("Команда, которая сработала", report.command_that_worked),
-    card("Личный somatic pattern", report.personal_somatic_pattern),
-    card("Samples", `${report.samples || 0} точек данных`),
+    card("What triggered tilt", report.what_triggered_tilt),
+    card("When the pattern started", report.pattern_started_at || "not detected"),
+    card("Recovery speed", report.recovery_seconds ? `${report.recovery_seconds} sec` : "need more live data"),
+    card("Command that worked", report.command_that_worked),
+    card("Personal somatic pattern", report.personal_somatic_pattern),
+    card("Samples", `${report.samples || 0} data points`),
   ].join("");
 
   const proof = report.proof_card || {};
-  document.getElementById("reportProof").innerHTML = `<span>Recovery proof</span><h2>${proof.headline || "Tilt -- → --"}</h2><p>${proof.jaw || ""} · ${proof.shoulders || ""}<br>${proof.command || ""}</p>`;
+  document.getElementById("reportProof").innerHTML = `<span>Recovery proof</span><h2>${proof.headline || "Tilt -- -> --"}</h2><p>${proof.jaw || ""} - ${proof.shoulders || ""}<br>${proof.command || ""}</p>`;
 
   const similar = report.similar_states || [];
   document.getElementById("similarStates").innerHTML = similar.length
-    ? similar.map((item) => card(`${Math.round(item.similarity * 100)}% похоже`, `${item.phrase || item.tokens?.join(" + ") || "body-state"} · Tilt ${item.tilt}`)).join("")
-    : card("Похожих состояний пока нет", "Запустите live session, чтобы накопить embeddings.");
+    ? similar.map((item) => card(`${Math.round(item.similarity * 100)}% similar`, `${item.phrase || item.tokens?.join(" + ") || "body-state"} - Tilt ${item.tilt}`)).join("")
+    : card("No similar states yet", "Start a live session to collect embeddings.");
 
   try {
     const command = await fetch("/api/command-effectiveness", { cache: "no-store" }).then((r) => r.json());
     document.getElementById("commandEffectiveness").innerHTML = [
-      card("Лучшая команда", command.best_command),
+      card("Best command", command.best_command),
       card("Tilt delta", command.tilt_delta ? `-${command.tilt_delta} tilt points` : command.message),
       card("Recovery delta", command.tilt_delta ? `-${command.tilt_delta} tilt points` : command.message),
     ].join("");
   } catch {
-    document.getElementById("commandEffectiveness").innerHTML = card("Command Effectiveness", "API пока недоступен.");
+    document.getElementById("commandEffectiveness").innerHTML = card("Command Effectiveness", "API unavailable.");
   }
 }
 
 async function exportDeck() {
   const status = document.getElementById("exportStatus");
-  status.textContent = "Собираю founder deck package...";
+  status.textContent = "Building founder deck package...";
   try {
     const result = await fetch("/api/export-founder-deck", { cache: "no-store" }).then((r) => r.json());
-    status.textContent = result.ok ? `Готово: ${result.export_dir}` : "Не удалось собрать export.";
+    status.textContent = result.ok ? `Ready: ${result.export_dir}` : "Could not build export.";
   } catch {
-    status.textContent = "Export API недоступен.";
+    status.textContent = "Export API unavailable.";
   }
 }
 
@@ -119,8 +119,8 @@ async function loadReplay() {
 document.getElementById("exportDeck")?.addEventListener("click", exportDeck);
 loadReplay().catch(() => {
   const root = document.getElementById("sessionReplay");
-  if (root) root.innerHTML = "<p class=\"muted\">Replay API недоступен.</p>";
+  if (root) root.innerHTML = "<p class=\"muted\">Replay API unavailable.</p>";
 });
 loadReport().catch(() => {
-  document.getElementById("reportCards").innerHTML = card("Нет данных", "Запустите live session или pitch demo.");
+  document.getElementById("reportCards").innerHTML = card("No data", "Start a live session or pitch demo.");
 });

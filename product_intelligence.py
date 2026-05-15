@@ -488,7 +488,7 @@ def save_baseline_profile(payload: dict[str, Any]) -> dict[str, Any]:
 def load_baseline_profile(profile_id: Any = "default") -> dict[str, Any]:
     record = read_json(profile_path(profile_id))
     if not record:
-        return {"ok": False, "profile_id": safe_profile_id(profile_id), "message": "Профиль baseline пока не сохранён."}
+        return {"ok": False, "profile_id": safe_profile_id(profile_id), "message": "Baseline profile is not saved yet."}
     return {"ok": True, "profile_id": safe_profile_id(profile_id), "profile": record}
 
 
@@ -621,7 +621,7 @@ def public_session_score(session_id: str | None = None) -> dict[str, Any]:
         "tester_felt_tension": felt_tension,
         "tester_marked_false_alert": false_alert,
         "labels": len(labels),
-        "message": "Подсказка подтверждена тестером." if helped else "Нужно больше labels: попросите тестера нажать H, если команда помогла.",
+        "message": "Command confirmed by tester." if helped else "Need more labels: ask the tester to press H if the command helped.",
     }
 
 
@@ -752,7 +752,7 @@ def coach_memory(tester_id: Any = None, game: Any = None) -> dict[str, Any]:
         "memory_events": len(rows),
         "commands": commands[:12],
         "best_command": commands[0] if commands else None,
-        "message": "Coach Memory усиливается с каждым label: H/F/T во время сессии.",
+        "message": "Coach Memory improves with every label: H/F/T during the session.",
     }
 
 
@@ -777,8 +777,8 @@ def command_effectiveness_table() -> dict[str, Any]:
             "source": command.get("source"),
             "claim": "current_session" if command.get("source") in {"real", "weak_signal"} else "fallback_template",
         },
-        {"command": "Челюсть мягко. Плечи вниз. Выдох.", "uses": 0, "avg_tilt_delta": None, "avg_recovery_seconds": None, "help_rate_percent": None, "false_alert_rate_percent": None, "source": "local_fallback", "claim": "needs_labels"},
-        {"command": "Сохраняй мягкость. Не зажимай дыхание.", "uses": 0, "avg_tilt_delta": None, "avg_recovery_seconds": None, "help_rate_percent": None, "false_alert_rate_percent": None, "source": "local_fallback", "claim": "needs_labels"},
+        {"command": "Soft jaw. Shoulders down. Exhale.", "uses": 0, "avg_tilt_delta": None, "avg_recovery_seconds": None, "help_rate_percent": None, "false_alert_rate_percent": None, "source": "local_fallback", "claim": "needs_labels"},
+        {"command": "Stay loose. Keep breathing.", "uses": 0, "avg_tilt_delta": None, "avg_recovery_seconds": None, "help_rate_percent": None, "false_alert_rate_percent": None, "source": "local_fallback", "claim": "needs_labels"},
     ]
     return {"status": "ready", "labels": labels, "total_labels": total, "rows": rows, "message": "Rows marked needs_labels are templates, not validated winners yet."}
 
@@ -786,11 +786,11 @@ def command_effectiveness_table() -> dict[str, Any]:
 def coach_command_library() -> dict[str, Any]:
     """Curated local command library for fast fallback coaching."""
     commands = [
-        {"id": "jaw_soft", "driver": "jaw", "command": "Челюсть мягко. Выдох длиннее.", "duration_seconds": 20},
-        {"id": "shoulders_down", "driver": "shoulders", "command": "Плечи вниз. Шея свободна.", "duration_seconds": 20},
-        {"id": "eyes_wide", "driver": "eyes", "command": "Расширь взгляд. Не вцепляйся в экран.", "duration_seconds": 15},
-        {"id": "breath_reset", "driver": "breath", "command": "Выдохни. Верни вес в таз.", "duration_seconds": 20},
-        {"id": "clutch_anchor", "driver": "clutch", "command": "Мягкая ось. Один следующий выбор.", "duration_seconds": 10},
+        {"id": "jaw_soft", "driver": "jaw", "command": "Soft jaw. Longer exhale.", "duration_seconds": 20},
+        {"id": "shoulders_down", "driver": "shoulders", "command": "Shoulders down. Neck free.", "duration_seconds": 20},
+        {"id": "eyes_wide", "driver": "eyes", "command": "Widen gaze. Do not grip the screen.", "duration_seconds": 15},
+        {"id": "breath_reset", "driver": "breath", "command": "Exhale. Return weight to the pelvis.", "duration_seconds": 20},
+        {"id": "clutch_anchor", "driver": "clutch", "command": "Soft axis. One next choice.", "duration_seconds": 10},
     ]
     effectiveness = command_effectiveness_table()
     current = effectiveness.get("rows", [{}])[0]
@@ -853,7 +853,7 @@ def personal_model_score(profile_id: Any = "default") -> dict[str, Any]:
             "profile_id": safe_profile_id(profile_id),
             "current": current,
             "score": None,
-            "message": "Сохраните personal baseline: neutral, jaw, shoulders, release.",
+            "message": "Save personal baseline: neutral, jaw, shoulders, release.",
         }
     baseline = (profile.get("profile") or {}).get("baseline") or {}
     neutral = baseline.get("neutral") or {}
@@ -870,8 +870,8 @@ def personal_model_score(profile_id: Any = "default") -> dict[str, Any]:
         "tilt_delta": round(tilt_delta, 1),
         "current": current,
         "message": (
-            f"Сегодня напряжение выше baseline на {round(score - 50, 1)} пунктов."
-            if score >= 55 else "Состояние близко к личному baseline."
+            f"Today is {round(score - 50, 1)} points above baseline."
+            if score >= 55 else "State is close to personal baseline."
         ),
     }
 
@@ -906,18 +906,18 @@ def autopilot_v2() -> dict[str, Any]:
         "lead_time_seconds": lead,
         "intervention": intervention,
         "prediction": (
-            f"Через ~{lead} сек вероятен {driver} lock." if lead and intervention not in {"maintain_recovery", "watch"}
+            f"In ~{lead} sec, {driver} lock is likely." if lead and intervention not in {"maintain_recovery", "watch"}
             else "Recovery likely improving." if intervention == "maintain_recovery"
-            else "Тильт уже близко/в красной зоне." if intervention == "reset_now"
-            else "Паттерн стабилен."
+            else "Tilt is near or inside the red zone." if intervention == "reset_now"
+            else "Pattern is stable."
         ),
         "command": {
-            "jaw_soft": "Челюсть мягко. Выдох длиннее.",
-            "shoulders_down": "Плечи вниз. Шея свободна.",
-            "reset_now": "Челюсть мягко. Плечи вниз. Выдох.",
-            "maintain_recovery": "Сохраняй мягкость. Не зажимай дыхание.",
-            "watch": "Команда не нужна.",
-        }.get(intervention, "Команда не нужна."),
+            "jaw_soft": "Soft jaw. Longer exhale.",
+            "shoulders_down": "Shoulders down. Neck free.",
+            "reset_now": "Soft jaw. Shoulders down. Exhale.",
+            "maintain_recovery": "Stay loose. Keep breathing.",
+            "watch": "No command needed.",
+        }.get(intervention, "No command needed."),
     }
 
 
@@ -1425,11 +1425,11 @@ def public_session_summary(session_id: str | None = None) -> dict[str, Any]:
     post_peak_low = min(tilts[peak_idx:]) if tilts else final
     recovery_delta = max(0.0, peak - post_peak_low)
     dominant_lock = "jaw" if any(as_float(row.get("jaw_score")) >= 65 for row in signals) else "shoulders" if any(as_float(row.get("shoulder_score")) >= 65 for row in signals) else "mixed"
-    proof_headline = "Недостаточно данных"
+    proof_headline = "Not enough data"
     if len(tilts) >= 5:
         proof_headline = f"Tilt {round(peak)} → {round(post_peak_low)}"
     elif tilts:
-        proof_headline = "Собираем proof"
+        proof_headline = "Collecting proof"
     return {
         "status": "ready" if rows else "empty",
         "session_id": session_id,
@@ -1496,10 +1496,10 @@ def public_session_timeline(session_id: str | None = None, limit: int = 240) -> 
             events.append({"t": t, "type": "coach_command", "label": recommendation[:120]})
             last_command = recommendation
         if tilt >= 75 and not high_open:
-            events.append({"t": t, "type": "tilt_rising", "label": "Риск тильта выше 75%"})
+            events.append({"t": t, "type": "tilt_rising", "label": "Tilt risk above 75%"})
             high_open = True
         if high_open and tilt < 55:
-            events.append({"t": t, "type": "recovery", "label": "Риск вернулся ниже 55%"})
+            events.append({"t": t, "type": "recovery", "label": "Risk returned below 55%"})
             high_open = False
 
     return {
@@ -1548,7 +1548,7 @@ def validation_mode_status(session_id: str | None = None) -> dict[str, Any]:
         "target_testers": VALIDATION_TESTER_TARGET,
         "cohort_progress_percent": cohort.get("progress_percent", 0),
         "labels_remaining": cohort.get("labels_remaining", VALIDATION_LABEL_TARGET),
-        "message": f"Спасибо: эта сессия добавила {summary.get('samples', 0)} сигналов и {len(labels)} labels.",
+        "message": f"Thank you: this session added {summary.get('samples', 0)} signals and {len(labels)} labels.",
     }
 
 
@@ -1563,7 +1563,7 @@ def share_proof(session_id: str | None = None) -> dict[str, Any]:
         "headline": f"Tilt {round(as_float(before))} → {round(as_float(after))}",
         "subline": (
             f"Recovery delta {round(delta, 1)} · {score.get('dominant_lock') or 'mixed'} lock"
-            if score.get("samples") else "Запустите live demo, чтобы собрать proof."
+            if score.get("samples") else "Run a live demo to collect proof."
         ),
         "stats": {
             "tilt_before": before,
@@ -1580,10 +1580,10 @@ def share_proof(session_id: str | None = None) -> dict[str, Any]:
 
 def investor_demo_script() -> dict[str, Any]:
     phases = [
-        {"id": "baseline", "seconds": 15, "title": "Baseline", "tilt_risk": 28, "readiness": 82, "recovery": 76, "command": "Система строит личный baseline."},
-        {"id": "rising_tilt", "seconds": 18, "title": "Rising tilt", "tilt_risk": 64, "readiness": 55, "recovery": 44, "command": "Риск растёт: челюсть и плечи напрягаются."},
-        {"id": "alert", "seconds": 12, "title": "Alert", "tilt_risk": 84, "readiness": 38, "recovery": 27, "command": "Мягкая челюсть. Плечи вниз. Длинный выдох."},
-        {"id": "recovery", "seconds": 25, "title": "Recovery", "tilt_risk": 46, "readiness": 70, "recovery": 68, "command": "Recovery improving. Сохраняй мягкость."},
+        {"id": "baseline", "seconds": 15, "title": "Baseline", "tilt_risk": 28, "readiness": 82, "recovery": 76, "command": "Building personal baseline."},
+        {"id": "rising_tilt", "seconds": 18, "title": "Rising tilt", "tilt_risk": 64, "readiness": 55, "recovery": 44, "command": "Risk rising: jaw and shoulders are tensing."},
+        {"id": "alert", "seconds": 12, "title": "Alert", "tilt_risk": 84, "readiness": 38, "recovery": 27, "command": "Soft jaw. Shoulders down. Long exhale."},
+        {"id": "recovery", "seconds": 25, "title": "Recovery", "tilt_risk": 46, "readiness": 70, "recovery": 68, "command": "Recovery improving. Stay loose."},
         {"id": "proof", "seconds": 20, "title": "Proof card", "tilt_risk": 39, "readiness": 79, "recovery": 81, "command": "Tilt 84 → 39. Command worked."},
     ]
     return {
@@ -1591,7 +1591,7 @@ def investor_demo_script() -> dict[str, Any]:
         "total_seconds": sum(phase["seconds"] for phase in phases),
         "phases": phases,
         "export_endpoint": "/api/export-pitch-package",
-        "message": "90-секундный сценарий для записи инвесторского ролика.",
+        "message": "90-second script for recording the investor video.",
     }
 
 
@@ -1704,18 +1704,18 @@ def command_effectiveness() -> dict[str, Any]:
     if not feature_rows:
         return {
             "status": "empty",
-            "best_command": "Мягкая челюсть. Плечи вниз. Выдох.",
+            "best_command": "Soft jaw. Shoulders down. Exhale.",
             "tilt_delta": 0.0,
             "recovery_seconds": None,
             "source": "demo",
-            "message": "Недостаточно данных для command effectiveness.",
+            "message": "Not enough data for command effectiveness.",
         }
 
     tilts = [as_float(row.get("tilt_score")) for row in feature_rows]
     summary = scoring.recovery_delta(tilts)
     delta = summary["delta"]
     recovery_seconds = (overlay.get("recovery") or {}).get("seconds")
-    command = overlay.get("coach_alert") or "Мягкая челюсть. Плечи вниз. Выдох."
+    command = overlay.get("coach_alert") or "Soft jaw. Shoulders down. Exhale."
     has_real_peak = summary["status"] == "ready"
     return {
         "status": "ready" if has_real_peak else "no_peak",
@@ -1727,9 +1727,9 @@ def command_effectiveness() -> dict[str, Any]:
         "samples": len(feature_rows),
         "source": "real" if has_real_peak else "weak_signal",
         "message": (
-            f"Команда снизила tilt на {delta:.1f} пунктов за "
-            f"{recovery_seconds:.1f}с." if recovery_seconds and has_real_peak
-            else f"Tilt дельта {delta:.1f} пунктов (по {len(feature_rows)} семплам)."
+            f"Command lowered tilt by {delta:.1f} points in "
+            f"{recovery_seconds:.1f}s." if recovery_seconds and has_real_peak
+            else f"Tilt delta {delta:.1f} points across {len(feature_rows)} samples."
         ),
     }
 
@@ -1759,7 +1759,7 @@ def session_report() -> dict[str, Any]:
     if not feature_rows:
         return {
             "status": "empty",
-            "summary": "Недостаточно данных для отчёта. Запустите live session.",
+            "summary": "Not enough data for a report. Run a live session.",
             "proof_card": proof_card(),
             "similar_states": similar_body_states(),
         }
@@ -1789,14 +1789,14 @@ def session_report() -> dict[str, Any]:
             first_pattern = sample.get("timestamp")
             break
 
-    command = overlay.get("coach_alert") or "Локальная команда: мягкая челюсть, плечи вниз, длинный выдох."
+    command = overlay.get("coach_alert") or "Local command: soft jaw, shoulders down, long exhale."
     recovery_seconds = (overlay.get("recovery") or {}).get("seconds")
 
     return {
         "status": "ready",
         "session_id": overlay.get("session_id") or (samples[-1].get("session_id") if samples else None),
         "samples": len(samples),
-        "summary": "Сессия показывает связку body-state -> intervention -> recovery proof.",
+        "summary": "Session shows body-state -> intervention -> recovery proof.",
         "what_triggered_tilt": dominant_trigger,
         "pattern_started_at": first_pattern,
         "peak_tilt": round(peak_tilt, 1),
@@ -1833,13 +1833,13 @@ def proof_card(
             "status": "demo",
             "source": "demo",
             "is_synthetic": True,
-            "headline": "Tilt 84 → 39 за 12 сек (демо)",
+            "headline": "Tilt 84 -> 39 in 12 sec (demo)",
             "tilt_before": 84,
             "tilt_after": 39,
             "recovery_seconds": 12,
             "jaw": "Jaw lock ↓",
             "shoulders": "Shoulders released",
-            "command": "Мягкая челюсть. Плечи вниз. Выдох.",
+            "command": "Soft jaw. Shoulders down. Exhale.",
         }
 
     tilts = [as_float(row.get("tilt_score")) for row in feature_rows]
@@ -1858,8 +1858,8 @@ def proof_card(
         "is_synthetic": is_synthetic,
         "headline": (
             f"Tilt {before:g} → {after:g}"
-            + (f" за {float(recovery_seconds):g} сек" if recovery_seconds else "")
-            + ("" if has_real_peak else " · слабый сигнал")
+            + (f" in {float(recovery_seconds):g} sec" if recovery_seconds else "")
+            + ("" if has_real_peak else " ? weak signal")
         ),
         "tilt_before": before,
         "tilt_after": after,
@@ -1868,7 +1868,7 @@ def proof_card(
         "samples": len(feature_rows),
         "jaw": "Jaw lock ↓" if max(jaws) - jaws[-1] >= 12 else "Jaw stable",
         "shoulders": "Shoulders released" if max(shoulders) - shoulders[-1] >= 12 else "Shoulders stable",
-        "command": overlay.get("coach_alert") or "Мягкая челюсть. Плечи вниз. Выдох.",
+        "command": overlay.get("coach_alert") or "Soft jaw. Shoulders down. Exhale.",
     }
 
 
@@ -2161,7 +2161,7 @@ def export_founder_deck_package() -> dict[str, Any]:
         atomic_io.atomic_write_json(export_dir / name, payload)
     (export_dir / "README.md").write_text(
         "# Kinaesthetic AI Founder Deck Export\n\n"
-        "Сюда собраны производные метрики для pitch evidence. Raw video/audio не экспортируются.\n\n"
+        "Derived metrics for pitch evidence. Raw video/audio is not exported.\n\n"
         "- session_report.json: session intelligence\n"
         "- session_replay.json: tilt timeline for screenshots\n"
         "- proof_card.json: before/after proof\n"
@@ -2170,7 +2170,7 @@ def export_founder_deck_package() -> dict[str, Any]:
         "- command_effectiveness_table.json: which commands are working\n"
         "- data_room.json: local data schemas and examples\n"
         "- privacy_passport.json: privacy/data ownership summary\n"
-        "- llm_health.json: текущий статус LLM endpoint\n",
+        "- llm_health.json: current LLM endpoint status\n",
         encoding="utf-8",
     )
     return {

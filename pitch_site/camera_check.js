@@ -1,4 +1,4 @@
-import { kaiPost } from "/kai_api.js";
+﻿import { kaiPost } from "/kai_api.js";
 
 const q = (id) => document.getElementById(id);
 const params = new URLSearchParams(window.location.search);
@@ -52,14 +52,14 @@ function classify(error) {
 
 function resultCopy(result) {
   const map = {
-    ready: ["Камера готова", "Можно запускать player mode."],
-    blocked: ["Камера заблокирована", "Разрешите Camera -> Allow в адресной строке и обновите страницу."],
-    not_found: ["Камера не найдена", "Подключите веб-камеру или выберите ее в настройках браузера."],
-    busy: ["Камера занята", "Закройте Zoom, Discord, OBS или другое приложение с камерой."],
-    timeout: ["Браузер ждет permission", "Найдите popup/иконку камеры и выберите Allow."],
-    https_required: ["Нужен HTTPS", "Публичная ссылка должна быть https://. Локально используйте localhost."],
-    unsupported: ["Браузер не поддерживает камеру", "Откройте сайт в Chrome или Edge."],
-    error: ["Камера не стартовала", "Проверьте permission, HTTPS и занятые приложения."],
+    ready: ["Camera ready", "You can start player mode."],
+    blocked: ["Camera blocked", "Set Camera to Allow in the address bar, then reload the page."],
+    not_found: ["Camera not found", "Connect a webcam or choose a camera in browser settings."],
+    busy: ["Camera is busy", "Close Zoom, Discord, OBS, or any other app using the camera."],
+    timeout: ["Browser is waiting for permission", "Find the permission popup or camera icon and choose Allow."],
+    https_required: ["HTTPS required", "Public tester links must use https://. Locally, use localhost."],
+    unsupported: ["Camera is not supported", "Open the site in Chrome or Edge."],
+    error: ["Camera did not start", "Check permission, HTTPS/localhost, and other apps using the camera."],
   };
   return map[result] || map.error;
 }
@@ -91,10 +91,10 @@ async function runCheck() {
     activeStream = null;
   }
   if (button) button.disabled = true;
-  setText("checkResult", "Проверяем...");
-  setText("checkDetails", "Браузер может показать permission popup.");
-  setText("nextStep", "Ждем");
-  setText("nextStepDetails", "Выберите Allow, если появится запрос.");
+  setText("checkResult", "Checking...");
+  setText("checkDetails", "The browser may show a permission popup.");
+  setText("nextStep", "Waiting");
+  setText("nextStepDetails", "Choose Allow if the browser asks for camera access.");
 
   const secure = window.isSecureContext || ["localhost", "127.0.0.1"].includes(location.hostname);
   const perm = await permissionState();
@@ -107,8 +107,8 @@ async function runCheck() {
     const [headline, details] = resultCopy(result);
     setText("checkResult", headline);
     setText("checkDetails", details);
-    setText("nextStep", "Откройте HTTPS");
-    setText("nextStepDetails", "Для публичных тестеров нужна Vercel/production https-ссылка.");
+    setText("nextStep", "Open HTTPS");
+    setText("nextStepDetails", "Public testers need a production HTTPS link.");
     await logCameraCheck(result, { permission_state: perm, media_devices_supported: Boolean(navigator.mediaDevices), ...beforeDevices });
     if (button) button.disabled = false;
     return;
@@ -142,12 +142,12 @@ async function runCheck() {
     }
     if (placeholder) placeholder.style.display = "none";
     const afterDevices = await countDevices();
-    setText("checkResult", "Камера готова");
-    setText("checkDetails", "Preview работает. Теперь можно запускать live coach.");
+    setText("checkResult", "Camera ready");
+    setText("checkDetails", "Preview works. You can now start the live coach.");
     setText("deviceCount", `${afterDevices.video} camera`);
     setText("deviceDetails", `${afterDevices.audio} audio inputs found, but audio is not used.`);
     setText("nextStep", "Start /play");
-    setText("nextStepDetails", "Откройте player mode и нажмите «Старт с камерой».");
+    setText("nextStepDetails", "Open player mode and click Start camera.");
     setBadge("permissionBadge", "camera: granted", "live");
     await logCameraCheck("ready", { permission_state: "granted", media_devices_supported: true, video_input_count: afterDevices.video, audio_input_count: afterDevices.audio });
   } catch (error) {

@@ -98,8 +98,8 @@ test("demo lock flow marks proof export", async ({ page }) => {
       (document.querySelector("#demoLockBtn") as HTMLButtonElement | null)?.click();
     }
   });
-  await expect(page.locator("#productStatus")).toContainText("Demo lock завершён", { timeout: 6000 });
-  await expect(page.locator("#saveStatus")).toContainText("proof экспортирован", { timeout: 6000 });
+  await expect(page.locator("#productStatus")).toContainText("Demo lock complete", { timeout: 6000 });
+  await expect(page.locator("#saveStatus")).toContainText("proof exported", { timeout: 6000 });
   const marker = await page.evaluate(() => localStorage.getItem("kinaesthetic_last_proof_export_at"));
   expect(marker).toBeTruthy();
 });

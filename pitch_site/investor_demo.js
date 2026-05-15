@@ -1,4 +1,4 @@
-const phases = [
+﻿const phases = [
   {
     id: "baseline",
     label: "Baseline",
@@ -7,13 +7,13 @@ const phases = [
     tilt: [24, 32],
     readiness: [82, 78],
     tag: "01 / CALIBRATION",
-    title: "Система калибрует игрока",
-    copy: "Первые секунды показывают нейтральную посадку: лицо спокойно, плечи ровные, сигнал чистый.",
-    command: "Система смотрит baseline.",
-    meta: "Это scripted demo. Для реальной камеры используйте /play.",
-    proof: "Proof появится после recovery",
-    details: "Собираем baseline: posture, face tension, shoulders.",
-    signals: ["Лицо: нейтрально", "Плечи: свободно", "Сигнал: чистый"],
+    title: "The system calibrates the player",
+    copy: "The first seconds show a neutral baseline: calm face, even shoulders, clean signal.",
+    command: "The system is watching baseline.",
+    meta: "This is a scripted demo. Use /play for real camera analysis.",
+    proof: "Proof appears after recovery",
+    details: "Collecting baseline: posture, face tension, shoulders.",
+    signals: ["Face: neutral", "Shoulders: relaxed", "Signal: clean"],
   },
   {
     id: "rising",
@@ -23,13 +23,13 @@ const phases = [
     tilt: [32, 62],
     readiness: [78, 56],
     tag: "02 / EARLY WARNING",
-    title: "Тильт растет раньше, чем игрок это замечает",
-    copy: "Челюсть фиксируется, плечи поднимаются, осанка становится жестче. Система видит body-state shift до срыва раунда.",
-    command: "Тильт растет: челюсть и плечи зажимаются.",
-    meta: "Порог реагирует на несколько сигналов сразу, а не на один случайный жест.",
-    proof: "Peak формируется",
+    title: "Tilt rises before the player notices it",
+    copy: "Jaw tension, lifted shoulders, and rigid posture combine into an early body-state shift before the round breaks.",
+    command: "Tilt is rising: jaw and shoulders are locking.",
+    meta: "The threshold reacts to several signals at once, not one random gesture.",
+    proof: "Peak is forming",
     details: "Dominant lock: jaw + shoulders.",
-    signals: ["Jaw lock: растет", "Shoulders: tense", "Readiness: падает"],
+    signals: ["Jaw lock: rising", "Shoulders: tense", "Readiness: falling"],
   },
   {
     id: "alert",
@@ -39,13 +39,13 @@ const phases = [
     tilt: [62, 74],
     readiness: [56, 43],
     tag: "03 / COACH INTERVENTION",
-    title: "Одна короткая команда вместо лишнего шума",
-    copy: "Коуч не отвлекает от матча. Он дает короткий телесный reset, когда риск уже высокий.",
-    command: "Смягчи челюсть. Опусти плечи. Длинный выдох.",
-    meta: "Critical alert работает локально даже без LLM. LLM только улучшает формулировку команды.",
+    title: "One short command instead of noise",
+    copy: "The coach does not distract from the match. It gives a short physical reset when risk is already high.",
+    command: "Soften jaw. Drop shoulders. Long exhale.",
+    meta: "Critical alerts work locally without an LLM. Cloud coach only improves wording.",
     proof: "Coach command issued",
     details: "Peak tilt: 74. Command delivered before escalation.",
-    signals: ["Risk: высокий", "Command: sent", "LLM: optional"],
+    signals: ["Risk: high", "Command: sent", "LLM: optional"],
   },
   {
     id: "recovery",
@@ -55,13 +55,13 @@ const phases = [
     tilt: [74, 31],
     readiness: [43, 79],
     tag: "04 / PROOF",
-    title: "Recovery видно в цифрах",
-    copy: "После команды риск падает, readiness возвращается. Инвестор видит loop: signal -> alert -> recovery -> proof.",
-    command: "Сброс пошел. Держи плечи свободными.",
-    meta: "После команды risk падает, readiness возвращается.",
+    title: "Recovery is visible in numbers",
+    copy: "After the command, risk drops and readiness returns. Investors see the loop: signal -> alert -> recovery -> proof.",
+    command: "Reset is working. Keep shoulders loose.",
+    meta: "After the command, risk drops and readiness returns.",
     proof: "Tilt 74 -> 31",
     details: "Recovery: 18 sec. Dominant lock: shoulders. Raw video not stored.",
-    signals: ["Recovery: 18 сек", "Dominant lock: shoulders", "Raw video: не сохраняется"],
+    signals: ["Recovery: 18 sec", "Dominant lock: shoulders", "Raw video: not stored"],
   },
 ];
 
@@ -92,11 +92,7 @@ function phaseAt(elapsedMs) {
     const phase = phases[index];
     const next = cursor + phase.duration;
     if (elapsedMs <= next || index === phases.length - 1) {
-      return {
-        phase,
-        index,
-        localProgress: clamp((elapsedMs - cursor) / phase.duration, 0, 1),
-      };
+      return { phase, index, localProgress: clamp((elapsedMs - cursor) / phase.duration, 0, 1) };
     }
     cursor = next;
   }
@@ -148,7 +144,7 @@ function render(elapsedMs) {
 
   const startButton = q("startInvestorDemo");
   if (startButton) {
-    startButton.textContent = safeElapsed >= totalMs ? "Повторить demo" : isPlaying ? "Demo идет..." : "Показать demo";
+    startButton.textContent = safeElapsed >= totalMs ? "Replay demo" : isPlaying ? "Demo running..." : "Show demo";
   }
 
   const nextActions = q("demoNextActions");

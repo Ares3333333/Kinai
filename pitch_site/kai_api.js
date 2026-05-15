@@ -1,4 +1,4 @@
-// Shared API helper for /play, /tester, /demo, /study, /admin.
+﻿// Shared API helper for /play, /tester, /demo, /study, /admin.
 //
 // Why this exists: every POST to the backend must carry the write token
 // (injected by the server into <head> as window.__KAI_WRITE_TOKEN__) and
@@ -68,7 +68,7 @@ export async function kaiGet(path) {
   return readResponse(response);
 }
 
-// Tells the backend the user accepted the privacy notice. Idempotent —
+// Tells the backend the user accepted the privacy notice. Idempotent --
 // safe to call once per page-load. The backend appends to
 // data/consent_log.jsonl for audit.
 export async function recordConsent(payload = {}) {

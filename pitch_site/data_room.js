@@ -1,9 +1,9 @@
-const setText = (id, value) => {
+﻿const setText = (id, value) => {
   const node = document.getElementById(id);
   if (node) node.textContent = value;
 };
 
-const fmt = (value) => new Intl.NumberFormat("ru-RU").format(Number(value) || 0);
+const fmt = (value) => new Intl.NumberFormat("en-US").format(Number(value) || 0);
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -13,7 +13,7 @@ const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 }[char]));
 
 function compactExample(row) {
-  if (!row) return "Нет данных";
+  if (!row) return "No data";
   const json = JSON.stringify(row);
   return json.length > 420 ? `${json.slice(0, 420)}...` : json;
 }
@@ -42,13 +42,13 @@ function renderFiles(files) {
 
 async function loadDataRoom() {
   const room = await fetch("/api/data-room", { cache: "no-store" }).then((r) => r.json());
-  setText("rawVideo", room.raw_video_saved ? "сохраняется" : "нет");
-  setText("rawAudio", room.raw_audio_saved ? "сохраняется" : "нет");
+  setText("rawVideo", room.raw_video_saved ? "stored" : "no");
+  setText("rawAudio", room.raw_audio_saved ? "stored" : "no");
   setText("roomLabels", fmt(room.validation?.total_alerts_labelled));
   setText("roomFiles", fmt((room.files || []).length));
   renderFiles(room.files || []);
 }
 
 loadDataRoom().catch(() => {
-  setText("roomFiles", "API недоступен");
+  setText("roomFiles", "API unavailable");
 });

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 async function seedConsent(page) {
   await page.addInitScript(() => {
@@ -43,7 +43,7 @@ test.describe("player camera UX", () => {
     await expect(page.locator("#cameraState")).toHaveText("no access");
     await expect(page.locator("#cameraPlaceholder")).toBeVisible();
     await expect(page.locator("#cameraHelpPanel")).toBeVisible();
-    await expect(page.locator("#cameraHelpPanel")).toContainText("Камера заблокирована");
+    await expect(page.locator("#cameraHelpPanel")).toContainText("Camera blocked");
     await expect(page.locator("#runtimeMode")).toHaveText("OFFLINE");
     await expect(page.locator("#productStatus")).not.toContainText("LIVE");
   });

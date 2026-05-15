@@ -1,8 +1,8 @@
-const q = (id) => document.getElementById(id);
+﻿const q = (id) => document.getElementById(id);
 
 function text(id, value) {
   const node = q(id);
-  if (node) node.textContent = value ?? "—";
+  if (node) node.textContent = value ?? "--";
 }
 
 function pct(value) {
@@ -23,8 +23,8 @@ async function runPitchDemo() {
   }
   await fetch("/api/export-pitch-package", { cache: "no-store" }).catch(() => {});
   text("phaseLabel", "export");
-  text("phaseTitle", "Pitch package готов");
-  text("phaseCommand", "Evidence, proof, privacy и metrics экспортированы.");
+  text("phaseTitle", "Pitch package ready");
+  text("phaseCommand", "Evidence, proof, privacy, and metrics exported.");
 }
 
 q("runPitchDemo")?.addEventListener("click", runPitchDemo);

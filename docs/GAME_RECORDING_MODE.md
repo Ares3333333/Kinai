@@ -1,4 +1,4 @@
-# Game Recording Mode
+﻿# Game Recording Mode
 
 Use this when recording a match with Kinaesthetic AI on top.
 
@@ -17,8 +17,8 @@ It opens:
 
 ## Recording Steps
 
-1. In `/play`, click **Старт с камерой** and allow camera access.
-2. In the small overlay, click **Включить голос** once.
+1. In `/play`, click **Start camera** and allow camera access.
+2. In the small overlay, click **Enable voice** once.
 3. Start the game in borderless/windowed mode.
 
 Exclusive fullscreen can hide normal Windows overlay windows. If that happens, switch the game to borderless fullscreen or add `/overlay` as an OBS browser source.

@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -28,10 +28,10 @@
       <section class="product-hero demo-hero">
         <div>
           <span class="section-kicker">Investor demo</span>
-          <h1>28 секунд: сигнал, alert, recovery proof.</h1>
+          <h1>28 seconds: signal, alert, recovery proof.</h1>
           <p>
-            Короткий scripted demo для инвестора: видно, что система считывает раннее напряжение,
-            дает одну coach-команду и показывает восстановление. Для реальной камеры используйте /play.
+            A short scripted investor demo: the system reads early tension,
+            gives one coach command, and proves recovery. Use /play for real camera analysis.
           </p>
           <div class="product-badges">
             <span class="product-badge" data-state="demo">DEMO</span>
@@ -40,9 +40,9 @@
           </div>
         </div>
         <div class="product-actions">
-          <button class="primary" id="startInvestorDemo" type="button" aria-describedby="demoClock">Показать demo</button>
-          <button id="resetInvestorDemo" type="button">Сбросить</button>
-          <a class="product-button" href="/play">Открыть live camera</a>
+          <button class="primary" id="startInvestorDemo" type="button" aria-describedby="demoClock">Show demo</button>
+          <button id="resetInvestorDemo" type="button">Reset</button>
+          <a class="product-button" href="/play">Open live camera</a>
           <a class="product-button" href="/evidence">Evidence</a>
         </div>
       </section>
@@ -59,21 +59,21 @@
               <div class="ai-person">
                 <img class="ai-scan-photo" src="/assets/kai-ai-scan-player.png" alt="AI body-state scan of an esports player" />
               </div>
-              <div class="scan-readout"><span id="demoSignalOne">Лицо: нейтрально</span><span id="demoSignalTwo">Плечи: свободно</span></div>
+              <div class="scan-readout"><span id="demoSignalOne">Face: neutral</span><span id="demoSignalTwo">Shoulders: relaxed</span></div>
             </div>
             <div class="demo-scanline"></div>
             <div class="demo-film-caption">
               <span id="demoSceneTag">01 / CALIBRATION</span>
-              <strong id="demoSceneTitle">Система калибрует игрока</strong>
-              <p id="demoSceneCopy">Первые секунды показывают нейтральную посадку: лицо спокойно, плечи ровные, сигнал чистый.</p>
+              <strong id="demoSceneTitle">The system calibrates the player</strong>
+              <p id="demoSceneCopy">The first seconds show a neutral baseline: calm face, even shoulders, clean signal.</p>
             </div>
-            <div class="demo-signal-chip" id="demoSignalThree">Сигнал: чистый</div>
+            <div class="demo-signal-chip" id="demoSignalThree">Signal: clean</div>
           </div>
           <ol class="demo-timeline" aria-label="Investor demo timeline">
-            <li class="is-active" data-step="baseline"><span>1</span><strong>Baseline</strong><small>Игрок спокоен</small></li>
-            <li data-step="rising"><span>2</span><strong>Rising tilt</strong><small>Челюсть и плечи напрягаются</small></li>
-            <li data-step="alert"><span>3</span><strong>Coach alert</strong><small>Одна короткая команда</small></li>
-            <li data-step="recovery"><span>4</span><strong>Recovery proof</strong><small>Риск падает</small></li>
+            <li class="is-active" data-step="baseline"><span>1</span><strong>Baseline</strong><small>Player is calm</small></li>
+            <li data-step="rising"><span>2</span><strong>Rising tilt</strong><small>Jaw and shoulders tighten</small></li>
+            <li data-step="alert"><span>3</span><strong>Coach alert</strong><small>One short command</small></li>
+            <li data-step="recovery"><span>4</span><strong>Recovery proof</strong><small>Risk drops</small></li>
           </ol>
         </article>
 
@@ -89,20 +89,20 @@
           </article>
           <article class="command-card">
             <span>Coach command</span>
-            <strong id="demoCommand">Система смотрит baseline.</strong>
-            <p id="demoCommandMeta">Это scripted demo. Для реальной камеры используйте /play.</p>
+            <strong id="demoCommand">The system is watching baseline.</strong>
+            <p id="demoCommandMeta">This is a scripted demo. Use /play for real camera analysis.</p>
           </article>
           <article class="proof-product proof-inline">
             <span>Recovery proof</span>
-            <h2 id="demoProof">Proof появится после recovery</h2>
-            <p id="demoProofDetails">Собираем baseline: posture, face tension, shoulders.</p>
+            <h2 id="demoProof">Proof appears after recovery</h2>
+            <p id="demoProofDetails">Collecting baseline: posture, face tension, shoulders.</p>
           </article>
           <div class="demo-next-actions" id="demoNextActions" hidden>
-            <span>Следующий шаг</span>
-            <strong>Готово для инвестора: demo показало signal → alert → recovery.</strong>
+            <span>Next step</span>
+            <strong>Investor-ready: the demo showed signal -> alert -> recovery.</strong>
             <div class="demo-action-row">
-              <a class="product-button primary" href="/evidence">Открыть investor evidence</a>
-              <a class="product-button" href="/play">Проверить live camera</a>
+              <a class="product-button primary" href="/evidence">Open investor evidence</a>
+              <a class="product-button" href="/play">Test live camera</a>
               <a class="product-button" href="mailto:start@sharprod.com?subject=Kinaesthetic%20AI%20intro">Contact founder</a>
               <a class="product-button" href="/privacy">Privacy proof</a>
             </div>
@@ -114,4 +114,3 @@
     <script type="module" src="/investor_demo.js"></script>
   </body>
 </html>
-

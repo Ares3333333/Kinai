@@ -1,4 +1,4 @@
-const q = (id) => document.getElementById(id);
+﻿const q = (id) => document.getElementById(id);
 
 const publicFallbackEvidence = {
   public_demo_mode: true,

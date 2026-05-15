@@ -65,14 +65,14 @@ DEMO_STATE = {
     "engine_connected": False,
     "camera_active": False,
     "signal_confidence": 0.91,
-    "message": "Демо-режим: это симуляция интерфейса для показа продукта.",
+    "message": "Demo mode: this is a product interface simulation.",
     "session_status": "demo",
     "tilt_risk": 38,
     "readiness": 76,
     "recovery": 64,
     "jaw_tension": "low",
     "shoulder_tension": "low",
-    "recommendation": "Готов",
+    "recommendation": "Ready",
     "alert_level": "normal",
     "confidence": 0.91,
 }
@@ -115,7 +115,7 @@ def fallback_state() -> dict:
     return dict(DEMO_STATE)
 
 
-def offline_state(message: str = "Движок не подключён. Запустите app.py или включите demo mode.") -> dict:
+def offline_state(message: str = "Engine is not connected. Start app.py or use demo mode.") -> dict:
     state = fallback_state()
     state.update(
         {
@@ -131,7 +131,7 @@ def offline_state(message: str = "Движок не подключён. Запу
             "recovery": None,
             "jaw_tension": None,
             "shoulder_tension": None,
-            "recommendation": "Запустите live engine или включите demo mode.",
+            "recommendation": "Start the live engine or use demo mode.",
             "alert_level": "offline",
             "confidence": 0.0,
             "message": message,
@@ -161,9 +161,9 @@ def normalize_state(raw: dict | None, from_live_file: bool) -> dict:
     heartbeat_fresh = heartbeat_age is not None and heartbeat_age <= HEARTBEAT_MAX_AGE_SECONDS
     if not raw:
         state = offline_state(
-            "Движок подключён, сессия не запущена."
+            "Engine connected, session is not running."
             if heartbeat_fresh
-            else "Движок не подключён. Запустите app.py или включите demo mode."
+            else "Engine is not connected. Start app.py or use demo mode."
         )
         if heartbeat_fresh:
             state.update(
@@ -171,7 +171,7 @@ def normalize_state(raw: dict | None, from_live_file: bool) -> dict:
                     "engine_connected": True,
                     "engine_heartbeat_age_seconds": round(heartbeat_age, 1),
                     "session_status": "idle",
-                    "message": "Движок подключён, но live session сейчас не идёт.",
+                    "message": "Engine connected, but live session is not running.",
                 }
             )
         return state
@@ -195,17 +195,17 @@ def normalize_state(raw: dict | None, from_live_file: bool) -> dict:
     readiness = scoring.readiness_score(tilt, jaw, shoulders, recovery)
 
     alert = str(raw.get("coach_alert") or "").strip()
-    recommendation = alert or "Готов"
+    recommendation = alert or "Ready"
 
     if confidence < 0.45:
         alert_level = "low_signal"
-        recommendation = "Улучшите свет / сядьте перед камерой"
+        recommendation = "Improve lighting / face the camera"
     elif recovery_block.get("active") or recovery >= 55:
         alert_level = "recovery"
-        recommendation = alert or "Сохраняй мягкость"
+        recommendation = alert or "Stay loose"
     elif tilt >= 65 or prediction.get("seconds") is not None or alert:
         alert_level = "warning"
-        recommendation = alert or "Расслабь челюсть · опусти плечи"
+        recommendation = alert or "Soften jaw ? drop shoulders"
     else:
         alert_level = "normal"
 
@@ -234,12 +234,12 @@ def normalize_state(raw: dict | None, from_live_file: bool) -> dict:
         camera_active = False
         confidence = min(confidence, 0.45)
         alert_level = "offline"
-        recommendation = "Движок подключён, сессия не запущена."
-        message = "Движок подключён, но live session сейчас не идёт."
+        recommendation = "Engine connected, session is not running."
+        message = "Engine connected, but live session is not running."
     elif not from_live_file:
         mode = "offline"
         session_status = "offline"
-        message = "Движок не подключён. Запустите app.py или используйте demo mode."
+        message = "Engine is not connected. Start app.py or use demo mode."
     elif is_stale:
         mode = "stale"
         session_status = "cached"
@@ -247,20 +247,20 @@ def normalize_state(raw: dict | None, from_live_file: bool) -> dict:
         confidence = min(confidence, 0.45)
         if alert_level != "low_signal":
             alert_level = "low_signal"
-        recommendation = "Live engine не обновляется. Запустите сессию в MVP или включите demo mode."
-        message = "Live engine не обновляется. Не показываем stale-метрики как настоящие."
+        recommendation = "Live engine is not updating. Start a session or use demo mode."
+        message = "Live engine is not updating. Stale metrics are hidden."
     elif raw.get("running") and is_live_age:
         mode = "live"
         session_status = "live"
-        message = "LIVE · идёт анализ тела и лица."
+        message = "LIVE ? analyzing body and face."
     else:
         mode = "offline"
         session_status = "idle"
         camera_active = False
         confidence = min(confidence, 0.45)
         alert_level = "offline"
-        recommendation = "Движок подключён, сессия не запущена."
-        message = "Движок подключён, но live session сейчас не идёт."
+        recommendation = "Engine connected, session is not running."
+        message = "Engine connected, but live session is not running."
 
     metrics_are_live = mode == "live"
     numbers_visible = metrics_are_live and confidence >= 0.55
@@ -313,8 +313,8 @@ def demo_state() -> dict:
             "is_demo": True,
             "engine_connected": False,
             "camera_active": False,
-            "message": "Демо-режим: это симуляция интерфейса для показа продукта.",
-            "recommendation": "Риск под контролем. Держи челюсть мягкой и плечи ниже.",
+            "message": "Demo mode: this is a product interface simulation.",
+            "recommendation": "Risk is controlled. Keep jaw soft and shoulders low.",
             "alert_level": "normal",
         }
     )
@@ -392,9 +392,9 @@ def performance_profile() -> dict:
         "llm_status": llm.get("status"),
         "healthy_for_demo": bool(state.get("is_live")) and fps >= 8 and as_float(state.get("signal_confidence"), 0) >= 0.55,
         "recommendation": (
-            "Готово для live demo."
+            "Ready for live demo."
             if bool(state.get("is_live")) and fps >= 8 and as_float(state.get("signal_confidence"), 0) >= 0.55
-            else "Для инвесторского показа включите live session, свет и быстрый локальный fallback coach."
+            else "For the investor demo, start a live session, improve lighting, and keep local fallback coach ready."
         ),
     }
 
@@ -442,7 +442,7 @@ def demo_readiness() -> dict:
         "status": "ready" if ready else "needs_attention",
         "ready_for_live_demo": ready,
         "checks": checks,
-        "message": "Live demo готов." if ready else "Можно показывать через pitch/browser demo, но live engine ещё не идеален.",
+        "message": "Live demo ready." if ready else "Use pitch/browser demo for now; live engine still needs attention.",
         "safe_fallback": "local coach command",
     }
 
@@ -1064,13 +1064,13 @@ def main() -> None:
 
     base_url = f"{scheme}://{HOST}:{PORT}"
     print(f"Kinaesthetic AI pitch/overlay server: {base_url}")
-    print(f"Главная: {base_url}/")
-    print(f"Демо: {base_url}/demo")
+    print(f"Home: {base_url}/")
+    print(f"Demo: {base_url}/demo")
     print(f"Pitch: {base_url}/pitch")
     print(f"Report: {base_url}/report")
     print(f"Privacy: {base_url}/privacy")
     print(f"Overlay: {base_url}/overlay")
-    print(f"Тестеры: {base_url}/tester")
+    print(f"Testers: {base_url}/tester")
     print(f"API state: {base_url}/api/state")
     try:
         server.serve_forever()

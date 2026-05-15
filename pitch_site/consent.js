@@ -1,4 +1,4 @@
-// First-run privacy consent popup.
+﻿// First-run privacy consent popup.
 // We never silently start the camera or write derived data without an
 // explicit accept. Decision is stored locally so testers see it once,
 // AND a server-side audit log entry is appended via /api/consent.

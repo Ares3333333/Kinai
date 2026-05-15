@@ -1,4 +1,4 @@
-import { kaiPost } from "/kai_api.js";
+﻿import { kaiPost } from "/kai_api.js";
 
 const $ = (id) => document.getElementById(id);
 const fmt = (value) => new Intl.NumberFormat("ru-RU").format(Number(value) || 0);
@@ -11,7 +11,7 @@ async function postStudy(event, extra = {}) {
   const base = formPayload($("studyForm"));
   const payload = { ...base, ...extra, event };
   const result = await kaiPost("/api/study-event", payload);
-  $("studyStatus").textContent = result?.ok ? `Сохранено: ${event}` : "Не удалось сохранить event.";
+  $("studyStatus").textContent = result?.ok ? `Saved: ${event}` : "Could not save event.";
   loadSummary();
 }
 
@@ -28,8 +28,8 @@ async function loadSummary() {
   $("studyRemaining").textContent = fmt(summary.cohort?.labels_remaining);
   const recent = summary.recent || [];
   $("studyRecent").innerHTML = recent.length
-    ? recent.map((row) => `<li><strong>${row.event}</strong><span>${row.tester_id || "tester"} · ${row.game || ""}</span></li>`).join("")
-    : "<li>Пока нет study events.</li>";
+    ? recent.map((row) => `<li><strong>${row.event}</strong><span>${row.tester_id || "tester"} - ${row.game || ""}</span></li>`).join("")
+    : "<li>No study events yet.</li>";
 }
 
 $("startStudy")?.addEventListener("click", () => postStudy("session_start"));
@@ -48,5 +48,5 @@ window.addEventListener("keydown", (event) => {
   if (key === "f") postLabel("false_alert");
 });
 loadSummary().catch(() => {
-  $("studyStatus").textContent = "Study API недоступен.";
+  $("studyStatus").textContent = "Study API unavailable.";
 });

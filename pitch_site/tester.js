@@ -1,4 +1,4 @@
-import { kaiPost } from "/kai_api.js";
+﻿import { kaiPost } from "/kai_api.js";
 import { requireConsent } from "/consent.js";
 
 document.getElementById("feedbackForm")?.addEventListener("submit", async (event) => {

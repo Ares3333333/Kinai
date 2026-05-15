@@ -1,4 +1,4 @@
-import { CV_CONFIG, TASKS_SOURCES } from "/cv_config.js";
+﻿import { CV_CONFIG, TASKS_SOURCES } from "/cv_config.js";
 
 const POSE_MODEL_URL = CV_CONFIG.poseModelUrl;
 const FACE_MODEL_URL = CV_CONFIG.faceModelUrl;
@@ -354,7 +354,7 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
           const hipMidX = (leftHip.x + rightHip.x) / 2;
           torsoLean = clamp(Math.abs(shoulderMidX - hipMidX) * 220);
         }
-        // MAX-based posture composite — mirrors the facial design so a
+        // MAX-based posture composite mirrors the facial design so a
         // single strong cue (forward head OR rolled shoulders OR raised
         // shoulders) is enough to register, while multi-channel posture
         // collapse adds a small bonus.
@@ -421,8 +421,8 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         const clenchedJaw = baseline?.jaw?.jawOpenRatio || 0.012;
         const landmarkJaw = clamp(((neutralJaw - jawOpenRatio) / Math.max(neutralJaw - clenchedJaw, 0.008)) * 100);
         // Raw ARKit-style blendshapes from MediaPipe FaceLandmarker.
-        // Real-life maxima land around 0.6–0.85 even when the user
-        // exaggerates, so we multiply aggressively (×140) — otherwise a
+        // Real-life maxima land around 0.6-0.85 even when the user
+        // exaggerates, so we multiply aggressively (x140); otherwise a
         // hard frown reads as ~50 and disappears in downstream weighting.
         const browDown = ((shapes.browDownLeft || 0) + (shapes.browDownRight || 0)) * 0.5;
         const browInnerUp = (shapes.browInnerUp || 0);
@@ -437,8 +437,8 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         const cheekSquint = ((shapes.cheekSquintLeft || 0) + (shapes.cheekSquintRight || 0)) * 0.5;
         const noseSneer = ((shapes.noseSneerLeft || 0) + (shapes.noseSneerRight || 0)) * 0.5;
 
-        // Per-channel tension scores (0–100). Each channel can hit 60+
-        // alone with a single strong micro-expression — that is what makes
+        // Per-channel tension scores (0-100). Each channel can hit 60+
+        // alone with a single strong micro-expression; that is what makes
         // the system actually feel responsive when the user frowns / pops
         // their eyes / clenches their lips. A neutral face yields <8.
         const browSignal = clamp(browDown * 140 + browInnerUp * 60 + noseSneer * 35);
@@ -511,20 +511,20 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         + facialTension * 0.50
       );
 
-      // Single-channel face floors — when the face alone is already
+      // Single-channel face floors: when the face alone is already
       // screaming, the bar must reflect it even if the body is calm.
-      if (facialTension >= 90) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(80));
-      else if (facialTension >= 75) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(65));
-      else if (facialTension >= 55) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(50));
-      else if (facialTension >= 35) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(30));
+      if (facialTension >= 90) tiltRiskRaw = Math.max(tiltRiskRaw, 80);
+      else if (facialTension >= 75) tiltRiskRaw = Math.max(tiltRiskRaw, 65);
+      else if (facialTension >= 55) tiltRiskRaw = Math.max(tiltRiskRaw, 50);
+      else if (facialTension >= 35) tiltRiskRaw = Math.max(tiltRiskRaw, 30);
 
-      // Single-channel posture floors — same rule for the body. Forward
+      // Single-channel posture floors: same rule for the body. Forward
       // head + raised shoulders alone is a clear tilt sign even with a
       // poker face.
-      if (postureStress >= 85) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(72));
-      else if (postureStress >= 68) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(55));
-      else if (postureStress >= 50) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(38));
-      else if (postureStress >= 34) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(22));
+      if (postureStress >= 85) tiltRiskRaw = Math.max(tiltRiskRaw, 72);
+      else if (postureStress >= 68) tiltRiskRaw = Math.max(tiltRiskRaw, 55);
+      else if (postureStress >= 50) tiltRiskRaw = Math.max(tiltRiskRaw, 38);
+      else if (postureStress >= 34) tiltRiskRaw = Math.max(tiltRiskRaw, 22);
 
       // Compound stress: count how many independent channels are firing.
       // Posture now counts as a single channel rather than three
@@ -536,19 +536,19 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         motionIntensity >= 35,
       ].filter(Boolean).length;
 
-      if (compoundChannels >= 4) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(95));
-      else if (compoundChannels >= 3) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(85));
-      else if (compoundChannels >= 2) tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(72));
+      if (compoundChannels >= 4) tiltRiskRaw = Math.max(tiltRiskRaw, 95);
+      else if (compoundChannels >= 3) tiltRiskRaw = Math.max(tiltRiskRaw, 85);
+      else if (compoundChannels >= 2) tiltRiskRaw = Math.max(tiltRiskRaw, 72);
 
-      // Saturated extreme: face AND posture both at peak → genuinely
-      // collapsed → push to ~97 so the bar truly fills.
+      // Saturated extreme: face AND posture both at peak means genuinely
+      // collapsed, so push to ~97 so the bar truly fills.
       if (facialTension >= 80 && postureStress >= 74) {
-        tiltRiskRaw = Math.max(tiltRiskRaw, desensitize(97));
+        tiltRiskRaw = Math.max(tiltRiskRaw, 97);
       }
 
       tiltRiskRaw = desensitize(tiltRiskRaw);
 
-      // Light EMA — fast enough to feel instant (alpha 0.55) but quiet
+      // Light EMA: fast enough to feel instant (alpha 0.55) but quiet
       // enough that blendshape jitter does not flicker the bar.
       const prevTilt = runtime.smoothedTilt ?? tiltRiskRaw;
       const tiltRisk = clamp(prevTilt * 0.52 + tiltRiskRaw * 0.48);
@@ -624,10 +624,10 @@ export async function createBrowserCvEngine({ video, overlayCanvas, signalCanvas
         motion: motionIntensity,
         brightness: motionSignals.brightness,
         recommendation: isVideoFrozen
-          ? "Видеопоток завис: проверьте камеру и перезапустите сессию."
+          ? "Video stream is frozen. Check the camera and restart the session."
           : tiltRiskStable > 70
-          ? "MediaPipe: челюсть мягко, плечи вниз, 20 секунд на сброс."
-          : "MediaPipe: состояние читается, держи мягкую ось.",
+          ? "MediaPipe: soften jaw, shoulders down, 20-second reset."
+          : "MediaPipe: state is readable, keep a soft posture.",
       };
     },
   };
@@ -697,10 +697,10 @@ export function createMotionFallbackEngine({ video, overlayCanvas, signalCanvas,
         motion: motionIntensity,
         brightness: signals.brightness,
         recommendation: isVideoFrozen
-          ? "Fallback: видеопоток завис, перезапустите камеру."
+          ? "Fallback: video stream is frozen, restart the camera."
           : tiltRisk > 65
-          ? "Fallback: остановись на 20 сек, смягчи челюсть."
-          : "Fallback: камера стабильна, но MediaPipe не загружен.",
+          ? "Fallback: pause for 20 seconds, soften your jaw."
+          : "Fallback: camera is stable, but MediaPipe is not loaded.",
       };
     },
   };

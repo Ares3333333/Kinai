@@ -1,4 +1,4 @@
-# Kinaesthetic AI · Design Guide (v1)
+﻿# Kinaesthetic AI - Design Guide (v1)
 
 ## Typography
 - Base text: `16px`, line-height `1.5`

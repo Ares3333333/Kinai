@@ -1,4 +1,4 @@
-import { createBrowserCvEngine, createMotionFallbackEngine } from "/browser_cv.js";
+﻿import { createBrowserCvEngine, createMotionFallbackEngine } from "/browser_cv.js";
 import { kaiBeacon, kaiPost, recordConsent } from "/kai_api.js";
 import { hasConsent, requireConsent } from "/consent.js";
 import { getVoiceLang, getVolume, isMuted, setMuted, setVoiceLang, setVolume, speak, unlockAudio } from "/tts_player.js";
@@ -41,6 +41,9 @@ let baselineSamples = [];
 let lastBaselineSyncAt = 0;
 let recoveryTracker = { peak: 0, peakAt: 0, command: "", proof: null };
 const demoLockSeconds = Math.max(5, Number(params.get("demo_lock_secs") || 90));
+const COACH_COOLDOWN_MS = 18_000;
+const CALIBRATION_SECONDS = 10;
+let calibrationWizard = { active: false, startedAt: 0 };
 const perf = {
   tickCount: 0,
   droppedTicks: 0,
@@ -96,15 +99,20 @@ function currentBaselineProfile() {
   return stored;
 }
 
+function hasPersonalBaseline() {
+  const profile = currentBaselineProfile();
+  return Boolean(profile?.neutral);
+}
+
 function updateBaselineBadge(profile = currentBaselineProfile()) {
   const badge = q("baselineBadge");
   if (!badge) return;
   if (profile?.neutral) {
     const samples = profile.samples || profile.neutral.samples || "?";
-    badge.textContent = `baseline: personal · ${samples} samples`;
+    badge.textContent = `baseline: personal - ${samples} samples`;
     badge.dataset.state = "live";
   } else {
-    badge.textContent = `baseline: learning · ${baselineSamples.length}/18`;
+    badge.textContent = `baseline: learning - ${baselineSamples.length}/18`;
     badge.dataset.state = baselineSamples.length >= 8 ? "stale" : "offline";
   }
 }
@@ -175,16 +183,56 @@ function maybeLearnPersonalBaseline(signals) {
   }
 }
 
+function startCalibrationWizard() {
+  if (!cameraStream) {
+    text("calibrationStatus", "Start the camera first, then run calibration.");
+    return;
+  }
+  calibrationWizard = { active: true, startedAt: Date.now() };
+  baselineSamples = [];
+  localStorage.removeItem("kinaesthetic_baseline_v1");
+  lastCoachCommand = "";
+  lastCoachAt = 0;
+  text("calibrationStatus", "Calibrating: sit naturally, keep face and shoulders visible for 10 seconds.");
+  updateBaselineBadge(null);
+}
+
+function resetCalibrationProfile() {
+  calibrationWizard = { active: false, startedAt: 0 };
+  baselineSamples = [];
+  calibrationPhases = {};
+  localStorage.removeItem("kinaesthetic_baseline_v1");
+  localStorage.removeItem("kinaesthetic_calibration_phases_v1");
+  text("calibrationStatus", "Calibration cleared. Run a new neutral baseline before judging tilt.");
+  updateBaselineBadge(null);
+}
+
+function updateCalibrationWizard() {
+  if (!calibrationWizard.active) return;
+  const elapsed = (Date.now() - calibrationWizard.startedAt) / 1000;
+  const remaining = Math.max(0, CALIBRATION_SECONDS - elapsed);
+  if (hasPersonalBaseline()) {
+    calibrationWizard.active = false;
+    text("calibrationStatus", "Personal baseline saved. Tilt now compares the player against themselves.");
+    return;
+  }
+  text(
+    "calibrationStatus",
+    `Calibrating neutral baseline: ${Math.ceil(remaining)}s left - samples ${baselineSamples.length}/18.`,
+  );
+}
+
 function evaluateSignalQuality(signals) {
   const confidence = Number(signals.signal_confidence || 0);
   const fps = Number(signals.fps || 0);
   const issues = [];
   if (signals.is_fallback) issues.push("MediaPipe fallback");
-  if (!signals.face_detected) issues.push("лицо вне кадра");
-  if (!signals.shoulders_visible) issues.push("плечи вне кадра");
-  if (confidence < 0.55) issues.push("слабый сигнал");
-  if (fps > 0 && fps < 5) issues.push("низкий FPS");
-  if (Number(signals.brightness || 0) > 0 && Number(signals.brightness || 0) < 18) issues.push("мало света");
+  if (!signals.face_detected) issues.push("face out of frame");
+  if (!signals.shoulders_visible) issues.push("shoulders out of frame");
+  if (confidence < 0.55) issues.push("weak signal");
+  if (fps > 0 && fps < 5) issues.push("low FPS");
+  if (Number(signals.brightness || 0) > 0 && Number(signals.brightness || 0) < 18) issues.push("low light");
+  if (!hasPersonalBaseline() && !calibrationWizard.active) issues.push("baseline learning");
   const fpsScore = fps <= 0 ? 4 : Math.min(10, fps);
   const score = clamp(
     confidence * 58
@@ -192,8 +240,9 @@ function evaluateSignalQuality(signals) {
     + (signals.shoulders_visible ? 17 : 0)
     + fpsScore,
   );
-  const ok = !signals.is_fallback && confidence >= 0.55 && signals.face_detected && signals.shoulders_visible && score >= 65;
-  return { ok, score, issues, numbersAllowed: ok || demoLockActive };
+  const signalOk = !signals.is_fallback && confidence >= 0.55 && signals.face_detected && signals.shoulders_visible && score >= 65;
+  const ok = signalOk;
+  return { ok, signalOk, score, issues, numbersAllowed: ok || demoLockActive || calibrationWizard.active };
 }
 
 function applySignalQualityGate(signals) {
@@ -272,12 +321,12 @@ function setRuntimeMode(mode) {
   if (hint) {
     hint.dataset.mode = normalized;
     hint.textContent = normalized === "live"
-      ? "LIVE: \u0430\u043d\u0430\u043b\u0438\u0437 \u0438\u0434\u0435\u0442."
+      ? "LIVE: analysis is running."
       : normalized === "demo"
-        ? "DEMO: \u043f\u043e\u043a\u0430\u0437\u0430\u043d \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439."
+        ? "DEMO: scripted scenario is shown."
         : normalized === "stale"
-          ? "STALE: \u0441\u0438\u0433\u043d\u0430\u043b \u0443\u0441\u0442\u0430\u0440\u0435\u043b, \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u0435 \u0441\u0435\u0441\u0441\u0438\u044e."
-          : "OFFLINE: \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u0421\u0442\u0430\u0440\u0442 \u0441 \u043a\u0430\u043c\u0435\u0440\u043e\u0439.";
+          ? "STALE: signal is outdated, restart the session."
+          : "OFFLINE: click Start camera.";
   }
 }
 
@@ -285,10 +334,10 @@ function setStartButton(state) {
   const button = q("startProductDemo");
   if (!button) return;
   const labels = {
-    idle: "\u0421\u0442\u0430\u0440\u0442 \u0441 \u043a\u0430\u043c\u0435\u0440\u043e\u0439",
-    starting: "\u0416\u0434\u0435\u043c \u043a\u0430\u043c\u0435\u0440\u0443...",
-    live: "\u041a\u043e\u0443\u0447 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
-    error: "\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c",
+    idle: "Start camera",
+    starting: "Waiting for camera...",
+    live: "Coach is running",
+    error: "Retry",
   };
   button.disabled = state === "starting";
   button.innerHTML = `<span aria-hidden="true">&#9654;</span><span>${labels[state] || labels.idle}</span>`;
@@ -396,7 +445,7 @@ async function refreshSystemHealth() {
   if (cameraErrorActive && !tickTimer) {
     setRuntimeMode("offline");
     setGraphRuntime("offline");
-    text("productStatus", "\u043a\u0430\u043c\u0435\u0440\u0430 \u043d\u0435 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u043b\u0430\u0441\u044c");
+    text("productStatus", "camera did not start");
     updateLlmHealthBadge(health.llm || {});
     return;
   }
@@ -491,7 +540,7 @@ function buildDemoLockSignals() {
     tilt = 26 + phase * 40;
     readiness = 84 - phase * 22;
     recovery = 78 - phase * 8;
-    recommendation = "База стабильна.";
+    recommendation = "Baseline is stable.";
   } else if (phase < 0.56) {
     tilt = 58 + (phase - 0.28) * 115;
     readiness = 70 - (phase - 0.28) * 66;
@@ -552,7 +601,7 @@ function consentAccepted() {
 }
 
 // If the user already accepted the global consent dialog (consent.js),
-// auto-tick the inline consent boxes too — they are informational copies
+// Auto-tick the inline consent boxes too; they are informational copies.
 // of the same agreement and otherwise silently block "Start session".
 function autoFillInlineConsentIfGlobal() {
   if (!hasConsent()) return false;
@@ -575,7 +624,7 @@ function persistConsent() {
     derived_signals_allowed: true,
     no_medical_claims: true,
   }));
-  // Append a server-side audit record. Fire-and-forget — the local copy
+  // Append a server-side audit record. Fire-and-forget; the local copy
   // is what gates the UI.
   recordConsent({
     source: "product_session",
@@ -718,7 +767,7 @@ async function endSession() {
   await refreshSessionScore();
   await refreshCoachMemory();
   await exportProofPackage();
-  text("saveStatus", "данные сохранены локально");
+  text("saveStatus", "data saved locally");
 }
 
 function sessionHeartbeatPayload() {
@@ -775,13 +824,13 @@ function setCameraHelp(details = null) {
   const title = q("cameraHelpTitle");
   const textNode = q("cameraHelpText");
   const stepsNode = q("cameraHelpSteps");
-  if (title) title.textContent = details.title || details.state || "Проверьте доступ к камере";
-  if (textNode) textNode.textContent = details.message || "Разрешите камеру в браузере и нажмите повторить.";
+  if (title) title.textContent = details.title || details.state || "Check camera access";
+  if (textNode) textNode.textContent = details.message || "Allow camera access in the browser and retry.";
   if (stepsNode) {
     const steps = details.steps?.length ? details.steps : [
-      "Нажмите иконку замка или камеры в адресной строке.",
-      "Разрешите доступ к камере для этого сайта.",
-      "Закройте другие приложения, которые могут использовать камеру.",
+      "Click the lock or camera icon in the address bar.",
+      "Allow camera access for this site.",
+      "Close other apps that may be using the camera.",
     ];
     stepsNode.innerHTML = steps.map((step) => `<li>${step}</li>`).join("");
   }
@@ -793,59 +842,59 @@ function classifyCameraError(err) {
   if (name === "NotAllowedError" || name === "SecurityError") {
     return {
       state: "no access",
-      title: "Камера заблокирована",
-      message: "Браузер не дал доступ к камере. Разрешите камеру для сайта и нажмите «Повторить запуск».",
+      title: "Camera blocked",
+      message: "The browser denied camera access. Allow camera for this site and retry.",
       steps: [
-        "Нажмите иконку замка или камеры слева от адреса сайта.",
-        "В пункте Camera выберите Allow. Если раньше нажали Block, сначала смените Block на Allow.",
-        "Обновите страницу и нажмите «Старт с камерой» ещё раз.",
+        "Click the lock or camera icon near the site address.",
+        "Set Camera to Allow. If it was blocked before, switch Block to Allow.",
+        "Refresh the page and click Start camera again.",
       ],
     };
   }
   if (name === "NotFoundError" || name === "OverconstrainedError") {
     return {
       state: "camera not found",
-      title: "Камера не найдена",
-      message: "Браузер не видит веб-камеру. Подключите камеру или выберите её в настройках браузера.",
+      title: "Camera not found",
+      message: "The browser cannot see a webcam. Connect one or select it in browser settings.",
       steps: [
-        "Проверьте, что камера подключена и включена.",
-        "Откройте настройки сайта в браузере и выберите нужную камеру.",
-        "Обновите страницу, если устройство появилось только что.",
+        "Check that the camera is connected and enabled.",
+        "Open site settings in the browser and choose the correct camera.",
+        "Refresh the page if the device was just connected.",
       ],
     };
   }
   if (name === "NotReadableError" || name === "AbortError") {
     return {
       state: "camera busy",
-      title: "Камера занята другим приложением",
-      message: "Камера уже используется. Закройте Zoom, Discord, OBS или другое приложение с камерой.",
+      title: "Camera is busy",
+      message: "The camera is already in use. Close Zoom, Discord, OBS or another camera app.",
       steps: [
-        "Закройте приложения, которые используют камеру.",
-        "Если OBS Virtual Camera включена, выключите её или выберите другую камеру.",
-        "Нажмите «Повторить запуск».",
+        "Close apps that use the camera.",
+        "If OBS Virtual Camera is enabled, turn it off or choose another camera.",
+        "Click Retry camera.",
       ],
     };
   }
   if (name === "TimeoutError") {
     return {
       state: "timeout",
-      title: "Браузер ждёт разрешение",
-      message: "Запрос камеры завис. Проверьте всплывающее окно разрешения или иконку камеры в адресной строке.",
+      title: "Browser is waiting for permission",
+      message: "The camera request is pending. Check the permission popup or camera icon in the address bar.",
       steps: [
-        "Найдите permission popup или иконку камеры сверху в браузере.",
-        "Выберите Allow.",
-        "Если popup пропал, нажмите «Повторить запуск».",
+        "Find the permission popup or camera icon in the browser.",
+        "Choose Allow.",
+        "If the popup disappeared, click Retry camera.",
       ],
     };
   }
   return {
     state: "camera error",
-    title: "Камера не запустилась",
-    message: "Проверьте разрешения браузера, HTTPS/localhost и попробуйте ещё раз.",
+    title: "Camera did not start",
+    message: "Check browser permissions, HTTPS/localhost and try again.",
     steps: [
-      "Откройте сайт через HTTPS или localhost.",
-      "Разрешите доступ к камере в браузере.",
-      "Закройте другие приложения с камерой и повторите запуск.",
+      "Open the site through HTTPS or localhost.",
+      "Allow camera access in the browser.",
+      "Close other camera apps and retry.",
     ],
   };
 }
@@ -883,25 +932,25 @@ async function startCamera() {
   const video = q("cameraPreview");
   const placeholder = q("cameraPlaceholder");
   if (!video || !navigator.mediaDevices?.getUserMedia) {
-    const msg = "Этот браузер не поддерживает доступ к камере. Откройте сайт в Chrome или Edge.";
+    const msg = "This browser does not support camera access. Open the site in Chrome or Edge.";
     if (placeholder) placeholder.textContent = msg;
     setStartHint(msg, { error: true });
     setCameraHelp({
-      title: "Браузер не поддерживает камеру",
+      title: "Browser does not support camera access",
       message: msg,
-      steps: ["Откройте сайт в Chrome или Edge.", "Используйте HTTPS или localhost.", "Нажмите «Повторить запуск»."],
+      steps: ["Open the site in Chrome or Edge.", "Use HTTPS or localhost.", "Click Retry camera."],
     });
     text("cameraState", "not supported");
     return false;
   }
   if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-    const msg = "Камера работает только на HTTPS или localhost. Публичная ссылка для тестеров должна быть HTTPS.";
+    const msg = "Camera access works only on HTTPS or localhost. Public tester links must use HTTPS.";
     if (placeholder) placeholder.textContent = msg;
     setStartHint(msg, { error: true });
     setCameraHelp({
-      title: "Нужен HTTPS",
+      title: "HTTPS required",
       message: msg,
-      steps: ["Откройте Vercel/production-ссылку через https://.", "Для локального теста используйте http://localhost:8502.", "Затем нажмите «Повторить запуск»."],
+      steps: ["Open the production link through https://.", "For local testing use http://localhost:8502.", "Then click Retry camera."],
     });
     text("cameraState", "https required");
     return false;
@@ -923,7 +972,7 @@ async function startCamera() {
       error.name = "NotAllowedError";
       throw error;
     }
-    setStartHint("Браузер запросит доступ к камере. Нажмите Allow.", { error: false });
+    setStartHint("The browser will ask for camera access. Click Allow.", { error: false });
     const cameraRequest = requestCameraStream();
     let timeoutId = null;
     const timeout = new Promise((_, reject) => {
@@ -948,7 +997,7 @@ async function startCamera() {
     setStep("stepCamera", true);
     text("cameraState", "active");
     setStartHint("Camera is active. Pose and face analysis runs locally.", { error: false });
-    setStartHint("Камера активна. Анализ позы и лица идёт локально.", { error: false });
+    setStartHint("Camera active. Pose and face analysis runs locally.", { error: false });
     setStartHint("Camera is active. Pose and face analysis runs locally.", { error: false });
     return true;
   } catch (err) {
@@ -994,10 +1043,7 @@ async function requestCoach(signals) {
     return "Signal is stable. Keep jaw soft, shoulders low, eyes wide.";
   }
   const now = Date.now();
-  if (Number(signals.tilt_risk || 0) < 65 && signals.jaw_tension !== "high" && signals.shoulder_tension !== "high") {
-    return "Сигнал читается. Смягчи челюсть, опусти плечи, держи взгляд шире.";
-  }
-  if (lastCoachCommand && now - lastCoachAt < 10000) return lastCoachCommand;
+  if (lastCoachCommand && now - lastCoachAt < COACH_COOLDOWN_MS) return lastCoachCommand;
   lastCoachAt = now;
   try {
     const data = await postJSON("/api/coach", { session_id: sessionId, tester_id: testerId, game, ...signals });
@@ -1020,9 +1066,13 @@ async function requestCoach(signals) {
 }
 
 function normalizeSignals(raw) {
+  const baselineReady = hasPersonalBaseline();
   const scale = sensitivityScale();
   const signalConfidence = Number(raw.signal_confidence || 0);
-  const tilt = clamp((Number(raw.tilt_risk || 0)) * scale);
+  const faceDetected = Boolean(raw.faceDetected ?? raw.face_detected);
+  const shouldersVisible = Boolean(raw.shouldersVisible ?? raw.shoulders_visible);
+  const tiltCeiling = baselineReady ? 100 : 78;
+  const tilt = clamp((Number(raw.tilt_risk || 0)) * scale, 0, tiltCeiling);
   const readiness = clamp(Number(raw.readiness || (100 - tilt)) - (tilt - Number(raw.tilt_risk || 0)) * 0.35);
   const recovery = clamp(Number(raw.recovery || (100 - tilt * 0.7)) - (tilt - Number(raw.tilt_risk || 0)) * 0.2);
   return {
@@ -1038,12 +1088,12 @@ function normalizeSignals(raw) {
     jaw_tension: raw.jaw_tension || "low",
     shoulder_tension: raw.shoulder_tension || "low",
     signal_confidence: signalConfidence,
-    face_confidence: Number(raw.face_confidence ?? (raw.faceDetected || raw.face_detected ? signalConfidence : 0)),
-    pose_confidence: Number(raw.pose_confidence ?? (raw.shouldersVisible || raw.shoulders_visible ? signalConfidence : 0)),
-    jaw_confidence: Number(raw.jaw_confidence ?? (raw.faceDetected || raw.face_detected ? signalConfidence : 0)),
-    shoulder_confidence: Number(raw.shoulder_confidence ?? (raw.shouldersVisible || raw.shoulders_visible ? signalConfidence : 0)),
-    face_detected: Boolean(raw.faceDetected ?? raw.face_detected),
-    shoulders_visible: Boolean(raw.shouldersVisible ?? raw.shoulders_visible),
+    face_confidence: Number(raw.face_confidence ?? (faceDetected ? signalConfidence : 0)),
+    pose_confidence: Number(raw.pose_confidence ?? (shouldersVisible ? signalConfidence : 0)),
+    jaw_confidence: Number(raw.jaw_confidence ?? (faceDetected ? signalConfidence : 0)),
+    shoulder_confidence: Number(raw.shoulder_confidence ?? (shouldersVisible ? signalConfidence : 0)),
+    face_detected: faceDetected,
+    shoulders_visible: shouldersVisible,
     fps: Number(raw.fps || 0),
     latency_ms: Number(raw.latency_ms || 0),
     jaw_score: Number(raw.jaw_score || 0),
@@ -1120,10 +1170,10 @@ function renderSignals(signals) {
   text("shoulderStatus", tensionLabel(signals.shoulder_tension));
   text("fpsValue", Number(signals.fps || 0).toFixed(1));
   perf.lastCvFps = Number(signals.fps || 0);
-  text("latencyValue", `${Math.round(signals.latency_ms || 0)}мс`);
+  text("latencyValue", `${Math.round(signals.latency_ms || 0)}ms`);
   text("pointsValue", `${signals.raw_landmarks || 0} + ${signals.derived_points || 0}`);
   text("cvMode", signals.runtime_source || "browser");
-  // Facial cue chip — shows which micro-expression is firing now.
+  // Facial cue chip: shows which micro-expression is firing now.
   const cueNode = q("facialCue");
   if (cueNode) {
     const dominant = signals.dominant_facial || "neutral";
@@ -1135,7 +1185,7 @@ function renderSignals(signals) {
   }
   const tensionNode = q("facialTensionValue");
   if (tensionNode) tensionNode.textContent = numbersVisible ? pct(signals.facial_tension) : "-";
-  // Posture cue chip — same idea for the body, clear and readable.
+  // Posture cue chip: same idea for the body, clear and readable.
   const postureCueNode = q("postureCue");
   if (postureCueNode) {
     const dominant = signals.dominant_posture || "neutral";
@@ -1224,7 +1274,7 @@ async function exportProofPackage() {
     ctx.fillText(command.slice(0, 64), 64, 410);
     ctx.fillStyle = "#9aa4af";
     ctx.font = "500 24px Inter, Arial";
-    ctx.fillText(`session: ${sessionId} · tester: ${testerId} · game: ${game || "n/a"}`, 64, 480);
+    ctx.fillText(`session: ${sessionId} - tester: ${testerId} - game: ${game || "n/a"}`, 64, 480);
     ctx.fillText("Raw video not stored. Derived signals only.", 64, 520);
 
     const pngUrl = canvas.toDataURL("image/png");
@@ -1241,6 +1291,7 @@ async function exportProofPackage() {
 
 function maybeSpeakCoach(signals) {
   const command = String(signals.recommendation || "").trim();
+  if (/^calibrat/i.test(command)) return;
   const highRisk = Number(signals.tilt_risk || 0) >= 72 || signals.jaw_tension === "high" || signals.shoulder_tension === "high";
   const commandChanged = command && command !== lastSpokenCommand;
   const crossedHighRisk = highRisk && !lastHighRiskState;
@@ -1257,7 +1308,7 @@ function maybeSpeakCoach(signals) {
 
 function captureCalibrationPhase(phase) {
   if (!lastSignals) {
-    text("calibrationStatus", "Start camera first and wait for live signals.");
+    text("calibrationStatus", "Start the camera first and wait for live signals.");
     return;
   }
   calibrationPhases[phase] = {
@@ -1291,7 +1342,7 @@ async function saveCalibrationProfile() {
     baseline: calibrationPhases,
   }).catch(() => null);
   localStorage.setItem("kinaesthetic_baseline_v1", JSON.stringify(calibrationPhases));
-  text("calibrationStatus", response?.ok ? "Personal baseline saved. Comparison is now against player baseline." : "Failed to save baseline.");
+  text("calibrationStatus", response?.ok ? "Personal baseline saved. Comparison now uses the player baseline." : "Failed to save baseline.");
 }
 
 async function refreshSessionScore() {
@@ -1317,8 +1368,8 @@ async function refreshCoachMemory() {
   try {
     const memory = await fetch(`/api/coach-memory?tester=${encodeURIComponent(testerId)}&game=${encodeURIComponent(game)}`, { cache: "no-store" }).then((r) => r.json());
     const best = memory.best_command;
-    text("coachMemoryHeadline", best ? `${best.help_rate_percent}% help-rate · ${best.recovery_proofs || 0} proofs` : "No memory yet");
-    text("coachMemoryDetails", best ? `${best.command} · avg recovery ${best.avg_recovery_delta || 0}` : "Use H/F/T after commands so system learns what works.");
+    text("coachMemoryHeadline", best ? `${best.help_rate_percent}% help-rate - ${best.recovery_proofs || 0} proofs` : "No memory yet");
+    text("coachMemoryDetails", best ? `${best.command} - avg recovery ${best.avg_recovery_delta || 0}` : "Use H/F/T after commands so system learns what works.");
   } catch {
     text("coachMemoryDetails", "Coach Memory API offline.");
   }
@@ -1349,6 +1400,7 @@ async function tick() {
     signals.recommendation = await requestCoach(signals);
     signals.coach_provider = lastCoachProvider;
     maybeLearnPersonalBaseline(signals);
+    updateCalibrationWizard();
     updateLocalRecoveryProof(signals);
     renderSignals(signals);
     text("commandText", signals.recommendation);
@@ -1358,7 +1410,7 @@ async function tick() {
       : "Coach waits for early tension patterns and avoids noisy prompts.");
     if (demoLockActive && (Date.now() - demoLockStartedAt) >= demoLockSeconds * 1000) {
       demoLockActive = false;
-      text("productStatus", "Demo proof готов");
+      text("productStatus", "Demo proof ready");
       await stopProductDemo();
     }
   } finally {
@@ -1425,16 +1477,16 @@ async function startProductDemo() {
   q("consentPanel")?.classList.add("is-accepted");
   q("consentPanel")?.classList.remove("needs-attention");
   setStartButton("starting");
-  text("productStatus", "запускаю камеру");
+  text("productStatus", "starting camera");
   await unlockAudio();
-  text("productStatus", "\u0437\u0430\u043f\u0443\u0441\u043a\u0430\u044e \u043a\u0430\u043c\u0435\u0440\u0443");
+  text("productStatus", "starting camera");
   const ok = await startCamera();
   if (!ok) {
-    text("productStatus", "камера не запустилась");
+    text("productStatus", "camera did not start");
     setRuntimeMode("offline");
     setGraphRuntime("offline");
     setStep("stepLive", false);
-    text("productStatus", "\u043a\u0430\u043c\u0435\u0440\u0430 \u043d\u0435 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u043b\u0430\u0441\u044c");
+    text("productStatus", "camera did not start");
     setStartButton("error");
     return;
   }
@@ -1476,7 +1528,7 @@ async function stopProductDemo() {
     placeholder.style.display = "grid";
     placeholder.textContent = "Camera stopped. Press start to begin a new session.";
   }
-  text("productStatus", "сессия остановлена");
+  text("productStatus", "session stopped");
   setRuntimeMode("offline");
   setGraphRuntime("offline");
   updatePerformanceCard();
@@ -1536,6 +1588,8 @@ function wire() {
   q("captureShoulders")?.addEventListener("click", () => captureCalibrationPhase("shoulders"));
   q("captureRelease")?.addEventListener("click", () => captureCalibrationPhase("release"));
   q("saveCalibration")?.addEventListener("click", saveCalibrationProfile);
+  q("startCalibrationWizard")?.addEventListener("click", startCalibrationWizard);
+  q("resetCalibration")?.addEventListener("click", resetCalibrationProfile);
   q("startValidationMode")?.addEventListener("click", startValidationTimer);
   q("voiceToggle")?.addEventListener("click", () => {
     setMuted(!isMuted());
@@ -1562,8 +1616,8 @@ function wire() {
     text("productStatus", "Demo lock test active");
     setTimeout(() => {
       localStorage.setItem("kinaesthetic_last_proof_export_at", new Date().toISOString());
-      text("productStatus", "Demo lock \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d - package saved");
-      text("saveStatus", "proof \u044d\u043a\u0441\u043f\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043d");
+      text("productStatus", "Demo lock complete - package saved");
+      text("saveStatus", "proof exported");
     }, 1200);
   };
   window.__runDemoLockTestMode = runDemoLockTestMode;

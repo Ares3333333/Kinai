@@ -1,11 +1,11 @@
-// /admin dashboard — read-only ops view of the data lake.
+﻿// /admin dashboard -- read-only ops view of the data lake.
 import { kaiGet } from "/kai_api.js";
 
 const fmt = (value) =>
   value === null || value === undefined ? "--" : new Intl.NumberFormat("en").format(Number(value) || 0);
 
 const fmtTime = (value) => {
-  if (!value) return "—";
+  if (!value) return "--";
   try {
     return new Date(value).toLocaleString();
   } catch {
@@ -25,7 +25,7 @@ function setPill(node, kind, label) {
 
 async function load() {
   const pill = document.getElementById("adminStatusPill");
-  setPill(pill, "warn", "loading…");
+  setPill(pill, "warn", "loading...");
   let summary;
   try {
     summary = await kaiGet("/api/admin-summary");
@@ -53,14 +53,14 @@ async function load() {
   setText("adminEngine", engineConnected ? "connected" : "offline");
   setText(
     "adminEngineMeta",
-    `heartbeat: ${engine.heartbeat_age_seconds ?? "—"}s · overlay: ${engine.overlay_state_age_seconds ?? "—"}s · running: ${engine.overlay_running ? "yes" : "no"}`
+    `heartbeat: ${engine.heartbeat_age_seconds ?? "--"}s - overlay: ${engine.overlay_state_age_seconds ?? "--"}s - running: ${engine.overlay_running ? "yes" : "no"}`
   );
 
   const stats = summary.feedback_stats || {};
   setText("adminHelpRate", stats.help_rate_percent != null ? `${stats.help_rate_percent}%` : "--");
   setText(
     "adminLabelTotals",
-    `helped ${stats.labels?.helped ?? 0} · tense ${stats.labels?.felt_tension ?? 0} · false ${stats.labels?.false_alert ?? 0}`
+    `helped ${stats.labels?.helped ?? 0} - tense ${stats.labels?.felt_tension ?? 0} - false ${stats.labels?.false_alert ?? 0}`
   );
   setText("adminFalseRate", stats.false_alert_rate_percent != null ? `${stats.false_alert_rate_percent}%` : "--");
 
@@ -68,7 +68,7 @@ async function load() {
   setText("adminAuth", sec.auth_enabled ? "token + consent" : "DEV (no auth)");
   setText(
     "adminAuthMeta",
-    `consent ${sec.consent_version || "—"} · write ${sec.rate_limit_write_per_minute || "?"}/min · read ${sec.rate_limit_read_per_minute || "?"}/min`
+    `consent ${sec.consent_version || "--"} - write ${sec.rate_limit_write_per_minute || "?"}/min - read ${sec.rate_limit_read_per_minute || "?"}/min`
   );
   document.getElementById("adminOrigins").textContent = JSON.stringify(sec.allowed_origins || [], null, 2);
   document.getElementById("adminDeprecated").textContent = JSON.stringify(summary.deprecated_routes || {}, null, 2);

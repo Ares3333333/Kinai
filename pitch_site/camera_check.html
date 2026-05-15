@@ -1,10 +1,10 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Kinaesthetic AI - Camera Check</title>
-    <meta name="description" content="Проверка камеры перед запуском live anti-tilt coach." />
+    <meta name="description" content="Camera check before starting the live anti-tilt coach." />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/product.css" />
   </head>
@@ -23,8 +23,8 @@
       <section class="product-hero camera-check-hero">
         <div>
           <span class="section-kicker">Camera check</span>
-          <h1>Проверим камеру до live-сессии.</h1>
-          <p>Один быстрый тест: HTTPS, permission, устройство, занята ли камера. Видео не сохраняется и не отправляется.</p>
+          <h1>Check the camera before the live session.</h1>
+          <p>One quick test for HTTPS, permission, device access, and camera busy errors. Video is not stored or uploaded.</p>
           <div class="product-badges">
             <span class="product-badge" id="secureBadge">secure: checking</span>
             <span class="product-badge" id="permissionBadge">camera: checking</span>
@@ -33,10 +33,10 @@
         </div>
         <div class="product-actions">
           <button class="play-start-cta" id="runCameraCheck" type="button">
-            <span aria-hidden="true">&#9654;</span><span>Проверить камеру</span>
+            <span aria-hidden="true">&#9654;</span><span>Check camera</span>
           </button>
-          <a class="product-button" href="/play">Открыть /play</a>
-          <a class="product-button" href="/demo">Demo без камеры</a>
+          <a class="product-button" href="/play">Open /play</a>
+          <a class="product-button" href="/demo">Demo without camera</a>
         </div>
       </section>
 
@@ -44,41 +44,41 @@
         <article class="product-panel camera-product">
           <div class="camera-stage">
             <video id="cameraCheckPreview" autoplay muted playsinline></video>
-            <div class="camera-placeholder" id="cameraCheckPlaceholder">Нажмите «Проверить камеру».</div>
+            <div class="camera-placeholder" id="cameraCheckPlaceholder">Click "Check camera".</div>
           </div>
           <div class="camera-trust-strip" aria-label="Camera check privacy">
-            <span><b>Local preview</b> картинка остается в браузере</span>
-            <span><b>Diagnostics</b> сохраняем только статус запуска</span>
-            <span><b>No raw video</b> видео/аудио/кадры не сохраняются</span>
+            <span><b>Local preview</b> image stays in the browser</span>
+            <span><b>Diagnostics</b> save startup status only</span>
+            <span><b>No raw video</b> video/audio/frames are never stored</span>
           </div>
         </article>
 
         <aside class="metrics-product product-panel camera-check-results">
           <article class="metric-card" id="checkResultCard">
-            <span>Статус</span>
-            <strong id="checkResult">—</strong>
-            <p id="checkDetails">Запустите проверку, чтобы увидеть причину, если камера не стартует.</p>
+            <span>Status</span>
+            <strong id="checkResult">--</strong>
+            <p id="checkDetails">Run the check to see the reason if the camera cannot start.</p>
           </article>
           <article class="metric-card">
-            <span>Устройства</span>
-            <strong id="deviceCount">—</strong>
-            <p id="deviceDetails">После permission браузер покажет доступные камеры.</p>
+            <span>Devices</span>
+            <strong id="deviceCount">--</strong>
+            <p id="deviceDetails">After permission, the browser will show available cameras.</p>
           </article>
           <article class="metric-card">
-            <span>Следующий шаг</span>
-            <strong id="nextStep">Проверка</strong>
-            <p id="nextStepDetails">Если все ок, переходите в player mode.</p>
+            <span>Next step</span>
+            <strong id="nextStep">Check</strong>
+            <p id="nextStepDetails">If everything is OK, continue to player mode.</p>
           </article>
         </aside>
       </section>
 
       <section class="product-panel camera-check-help" id="cameraCheckHelp">
-        <p class="section-kicker">Если не работает</p>
+        <p class="section-kicker">If it does not work</p>
         <ol>
-          <li>Откройте сайт через HTTPS или localhost.</li>
-          <li>Нажмите замок/иконку камеры в адресной строке и выберите Camera -> Allow.</li>
-          <li>Закройте Zoom, Discord, OBS или другое приложение, которое заняло камеру.</li>
-          <li>Обновите страницу и повторите проверку.</li>
+          <li>Open the site through HTTPS or localhost.</li>
+          <li>Click the lock/camera icon in the address bar and set Camera to Allow.</li>
+          <li>Close Zoom, Discord, OBS, or any app that may be using the camera.</li>
+          <li>Reload the page and run the check again.</li>
         </ol>
       </section>
     </main>
@@ -86,4 +86,3 @@
     <script type="module" src="/camera_check.js"></script>
   </body>
 </html>
-

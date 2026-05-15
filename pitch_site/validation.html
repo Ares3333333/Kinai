@@ -1,9 +1,9 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kinaesthetic AI — validation mode</title>
+    <title>Kinaesthetic AI - validation mode</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/product.css" />
   </head>
@@ -21,37 +21,36 @@
       <section class="product-hero">
         <div>
           <h1>Validation Mode</h1>
-          <p>10-минутный протокол для тестеров: система собирает derived signals, а тестер ставит labels через T/H/F.</p>
+          <p>A 10-minute tester protocol: the system collects derived signals while the tester labels events with T/H/F.</p>
           <div class="product-badges">
-            <span class="product-badge ok" id="validationStatus">готов</span>
+            <span class="product-badge ok" id="validationStatus">ready</span>
             <span class="product-badge" id="validationProgress">0/150 labels</span>
           </div>
         </div>
         <div class="product-actions">
-          <a class="product-button primary" href="/play">Начать 10-минутный тест</a>
-          <a class="product-button" href="/evidence">Посмотреть evidence</a>
+          <a class="product-button primary" href="/play">Start 10-minute test</a>
+          <a class="product-button" href="/evidence">View evidence</a>
         </div>
       </section>
       <section class="evidence-layout">
         <article class="evidence-card">
-          <span>Инструкция</span>
+          <span>Instructions</span>
           <ul class="evidence-list">
-            <li>Откройте режим игрока.</li>
-            <li>Разрешите камеру и сядьте так, чтобы были видны лицо и плечи.</li>
-            <li>Играйте 10 минут.</li>
-            <li>Нажимайте T, когда чувствуете тильт или напряжение.</li>
-            <li>Нажимайте H, если команда помогла.</li>
-            <li>Нажимайте F, если это false alert.</li>
+            <li>Open player mode.</li>
+            <li>Allow camera access and sit so your face and shoulders are visible.</li>
+            <li>Play for 10 minutes.</li>
+            <li>Press T when you feel tilt or tension.</li>
+            <li>Press H if the command helped.</li>
+            <li>Press F if it is a false alert.</li>
           </ul>
         </article>
         <article class="evidence-card">
-          <span>Текущий прогресс</span>
-          <strong id="validationHeadline">—</strong>
-          <p id="validationDetails">Загрузка...</p>
+          <span>Current progress</span>
+          <strong id="validationHeadline">-</strong>
+          <p id="validationDetails">Loading...</p>
         </article>
       </section>
     </main>
     <script type="module" src="/validation.js"></script>
   </body>
 </html>
-

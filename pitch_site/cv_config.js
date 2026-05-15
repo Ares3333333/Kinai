@@ -1,4 +1,4 @@
-export const CV_CONFIG = {
+﻿export const CV_CONFIG = {
   tasksVersion: "0.10.21",
   poseModelUrl: "/models/pose_landmarker_lite.task",
   faceModelUrl: "/models/face_landmarker.task",

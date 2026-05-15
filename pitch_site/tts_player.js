@@ -1,4 +1,4 @@
-// Voice coach for /play.
+﻿// Voice coach for /play.
 // Raw audio is never recorded. This module only plays short local browser
 // prompts through Web Speech API, with an earcon fallback.
 

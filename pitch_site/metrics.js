@@ -1,4 +1,4 @@
-const setText = (id, value) => {
+﻿const setText = (id, value) => {
   const node = document.getElementById(id);
   if (node) node.textContent = value;
 };
@@ -49,7 +49,7 @@ function renderCommandTable(rows) {
       <article>
         <strong>${escapeHTML(row.command || "local coach command")}</strong>
         <span>${escapeHTML(row.claim || row.source || "needs labels")}</span>
-        <p>uses: ${fmt(row.uses)} · delta: ${row.avg_tilt_delta == null ? "--" : `-${row.avg_tilt_delta} pts`} · help: ${row.help_rate_percent == null ? "--" : pct(row.help_rate_percent)} · false: ${row.false_alert_rate_percent == null ? "--" : pct(row.false_alert_rate_percent)}</p>
+        <p>uses: ${fmt(row.uses)} - delta: ${row.avg_tilt_delta == null ? "--" : `-${row.avg_tilt_delta} pts`} - help: ${row.help_rate_percent == null ? "--" : pct(row.help_rate_percent)} - false: ${row.false_alert_rate_percent == null ? "--" : pct(row.false_alert_rate_percent)}</p>
       </article>
     `
         )
@@ -76,7 +76,7 @@ async function loadMetrics() {
   setText("embeddingsCount", fmt(metrics.embedding_vectors));
   setText("labelsCount", fmt(metrics.feedback_labels));
   setText("proofHeadline", metrics.proof_headline || "Tilt -- -> --");
-  setText("proofMeta", metrics.best_command || "Команда появится после live session.");
+  setText("proofMeta", metrics.best_command || "Command appears after a live session.");
   setText("recoveryDelta", metrics.recovery_delta ? `${metrics.recovery_delta} pts` : "--");
   setText("recoverySeconds", metrics.recovery_seconds ? `${metrics.recovery_seconds} sec` : "--");
   setText("commandEffectiveness", metrics.tilt_delta_points ? `-${metrics.tilt_delta_points} pts` : "--");
@@ -120,7 +120,7 @@ async function loadCohort() {
   const recent = cohort.latest_testers || [];
   root.innerHTML = recent.length
     ? recent
-        .map((item) => `<li><strong>${escapeHTML(item.label)}</strong><span>${escapeHTML(item.moment || "session")} · ${escapeHTML(item.tester || "tester")}</span></li>`)
+        .map((item) => `<li><strong>${escapeHTML(item.label)}</strong><span>${escapeHTML(item.moment || "session")} - ${escapeHTML(item.tester || "tester")}</span></li>`)
         .join("")
     : "<li>No labels yet. Open /play and press T/H/F during a session.</li>";
 }
@@ -142,7 +142,7 @@ async function loadFalseAlerts() {
       <article>
         <strong>${escapeHTML(row.moment || "false alert")}</strong>
         <span>${escapeHTML(row.likely_reason || "review")}</span>
-        <p>mode: ${escapeHTML(row.mode || "unknown")} · confidence: ${row.confidence ?? "--"} · tilt: ${row.tilt ?? "--"}</p>
+        <p>mode: ${escapeHTML(row.mode || "unknown")} - confidence: ${row.confidence ?? "--"} - tilt: ${row.tilt ?? "--"}</p>
       </article>
     `
         )

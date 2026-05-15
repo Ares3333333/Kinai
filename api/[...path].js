@@ -1,4 +1,4 @@
-const fallback = (path) => {
+﻿const fallback = (path) => {
   const now = new Date().toISOString();
   if (path === "system-health") {
     return {
@@ -102,6 +102,9 @@ module.exports = async function handler(req, res) {
   const headers = { ...req.headers };
   delete headers.host;
   delete headers["content-length"];
+  if (process.env.KAI_WRITE_TOKEN && !headers["x-kai-token"]) {
+    headers["x-kai-token"] = process.env.KAI_WRITE_TOKEN;
+  }
 
   const init = { method: req.method, headers };
   if (!["GET", "HEAD"].includes(req.method)) {

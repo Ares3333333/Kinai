@@ -1,17 +1,23 @@
-const tensionLabels = { low: "низкое", medium: "среднее", high: "высокое" };
+﻿const tensionLabels = { low: "low", medium: "medium", high: "high" };
 const statusLabels = {
-  live: "LIVE · идёт анализ",
-  demo: "Демо-режим",
-  stale: "Live state устарел",
-  offline: "Движок не подключён",
-  idle: "Движок подключён · сессия не запущена",
+  live: "LIVE - analyzing",
+  demo: "Demo mode",
+  stale: "Live state is stale",
+  offline: "Engine is offline",
+  idle: "Engine connected - session not started",
 };
 
 const hasNumber = (v) => v !== null && v !== undefined && Number.isFinite(Number(v));
 const clampPercent = (v) => (hasNumber(v) ? Math.max(0, Math.min(100, Number(v))) : 0);
 const showPercent = (v) => (hasNumber(v) ? `${Math.round(clampPercent(v))}%` : "--");
-const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-const setWidth = (id, value) => { const el = document.getElementById(id); if (el) el.style.width = `${clampPercent(value)}%`; };
+const setText = (id, value) => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+};
+const setWidth = (id, value) => {
+  const el = document.getElementById(id);
+  if (el) el.style.width = `${clampPercent(value)}%`;
+};
 
 async function refreshState() {
   try {
@@ -25,7 +31,7 @@ async function refreshState() {
     renderState(state, health);
   } catch {
     renderState(
-      { mode: "offline", session_status: "offline", recommendation: "Запустите локальный engine или откройте pitch demo." },
+      { mode: "offline", session_status: "offline", recommendation: "Start the local engine or open the pitch demo." },
       null,
     );
   }
@@ -33,7 +39,7 @@ async function refreshState() {
 
 function renderState(state, health) {
   const statusKey = state.session_status === "idle" ? "idle" : state.mode || state.session_status;
-  setText("sessionStatus", statusLabels[statusKey] || "Состояние продукта");
+  setText("sessionStatus", statusLabels[statusKey] || "Product state");
   if (state.mode === "live" && state.numbers_visible !== false) {
     setText("tiltRisk", showPercent(state.tilt_risk));
     setText("readiness", showPercent(state.readiness));
@@ -49,10 +55,10 @@ function renderState(state, health) {
     setText("shoulders", "--");
     setWidth("tiltBar", 0);
   }
-  setText("recommendation", state.recommendation || "Готов");
+  setText("recommendation", state.recommendation || "Ready");
   if (health) {
     const llm = health.llm || {};
-    setText("llmStatus", `${llm.connected ? "connected" : llm.status || "fallback"} · ${llm.provider || "local"} · ${llm.latency_ms ?? "—"}мс`);
+    setText("llmStatus", `${llm.connected ? "connected" : llm.status || "fallback"} - ${llm.provider || "local"} - ${llm.latency_ms ?? "--"}ms`);
   }
 }
 

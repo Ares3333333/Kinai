@@ -1,9 +1,9 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kinaesthetic AI - Режим игрока</title>
+    <title>Kinaesthetic AI - Player Mode</title>
     <meta name="description" content="Kinaesthetic AI is a local browser camera coach for gamers: live tilt risk, readiness, coach command, and recovery proof without storing raw video." />
     <meta property="og:title" content="Kinaesthetic AI - Live anti-tilt coach" />
     <meta property="og:description" content="Run local browser CV, see tilt risk/readiness, and collect recovery proof. Raw video stays in the browser." />
@@ -27,17 +27,17 @@
     <main class="product-shell">
       <section class="product-hero player-hero">
         <div>
-          <span class="section-kicker">Режим игрока</span>
-          <h1>Анти-тильт коуч во время матча</h1>
-          <p>Один экран для игрока: камера, статус LIVE/DEMO/OFFLINE, риск тильта, готовность, команда коуча и proof восстановления.</p>
+          <span class="section-kicker">Player mode</span>
+          <h1>Anti-tilt coach during the match</h1>
+          <p>One screen for the player: camera, LIVE/DEMO/OFFLINE status, tilt risk, readiness, coach command and recovery proof.</p>
           <div class="product-badges">
-            <span class="product-badge ok" id="productStatus">Готов к запуску</span>
+            <span class="product-badge ok" id="productStatus">Ready to start</span>
             <span class="product-badge" id="runtimeMode">OFFLINE</span>
             <span class="product-badge" id="cloudStatus">coach: local</span>
             <span class="product-badge investor-extra" id="testerBadge">tester: anonymous</span>
-            <span class="product-badge investor-extra" id="gameBadge">game: —</span>
-            <span class="product-badge investor-extra" id="sessionIdLabel">session: —</span>
-            <span class="product-badge investor-extra" id="queueStatus">очередь: чисто</span>
+            <span class="product-badge investor-extra" id="gameBadge">game: --</span>
+            <span class="product-badge investor-extra" id="sessionIdLabel">session: --</span>
+            <span class="product-badge investor-extra" id="queueStatus">queue: clean</span>
             <span class="product-badge" id="saveStatus">auto-save: ready</span>
             <span class="product-badge" id="qualityGateBadge">quality: waiting</span>
             <span class="product-badge" id="baselineBadge">baseline: learning</span>
@@ -47,34 +47,34 @@
         <div class="product-actions player-main-actions">
           <button class="primary play-start-cta" id="startProductDemo" type="button" disabled aria-describedby="playStartHint modeHint">
             <span aria-hidden="true">▶</span>
-            <span>Старт с камерой</span>
+            <span>Start camera</span>
           </button>
-          <button id="stopProductDemo" type="button">Стоп</button>
-          <button id="demoLockBtn" type="button">Демо 90 сек</button>
-          <a class="product-button" href="/camera-check">Проверка камеры</a>
+          <button id="stopProductDemo" type="button">Stop</button>
+          <button id="demoLockBtn" type="button">90-sec demo</button>
+          <a class="product-button" href="/camera-check">Camera check</a>
           <button class="investor-extra" id="exportProofBtn" type="button">Export proof</button>
-          <button class="investor-extra" id="investorModeToggle" type="button">Режим инвестора</button>
-          <a class="product-button investor-extra" href="/demo">Камера + overlay</a>
+          <button class="investor-extra" id="investorModeToggle" type="button">Investor mode</button>
+          <a class="product-button investor-extra" href="/demo">Camera + overlay</a>
         </div>
 
-        <p class="play-start-hint" id="playStartHint" role="status" aria-live="polite">Нажмите старт и разрешите доступ к камере. Видео не сохраняется.</p>
-        <p class="play-mode-hint" id="modeHint" role="status" aria-live="polite">OFFLINE: анализ не идёт. Нажмите «Старт с камерой».</p>
+        <p class="play-start-hint" id="playStartHint" role="status" aria-live="polite">Click start and allow camera access. Raw video is not stored.</p>
+        <p class="play-mode-hint" id="modeHint" role="status" aria-live="polite">OFFLINE: analysis is not running. Click "Start camera".</p>
 
         <div class="product-actions investor-extra">
           <button id="voiceToggle" type="button">Voice ON</button>
           <label class="voice-control">
-            <span>Чувствительность</span>
-            <select id="sensitivityProfile" aria-label="Профиль чувствительности">
+            <span>Sensitivity</span>
+            <select id="sensitivityProfile" aria-label="Sensitivity profile">
               <option value="low">Low</option>
               <option value="normal" selected>Normal</option>
               <option value="high">High</option>
             </select>
           </label>
           <label class="voice-control">
-            <span>Голос</span>
+            <span>Voice volume</span>
             <input id="voiceVolume" type="range" min="0" max="100" value="80" />
           </label>
-          <select id="voiceLang" aria-label="Язык голосового коуча">
+          <select id="voiceLang" aria-label="Voice coach language">
             <option value="ru">RU</option>
             <option value="en">EN</option>
           </select>
@@ -84,13 +84,33 @@
       <section class="consent-panel product-panel investor-extra" id="consentPanel">
         <div>
           <span class="section-kicker">Privacy first</span>
-          <h2>Камера остаётся в браузере</h2>
-          <p>Raw video/audio не сохраняются. Для proof и validation пишутся только производные сигналы и ваши labels.</p>
+          <h2>Camera stays in the browser</h2>
+          <p>Raw video/audio is not stored. Proof and validation save only derived signals and your labels.</p>
         </div>
         <div class="consent-checks">
-          <label><input type="checkbox" id="consentLocal" /> Видео остаётся в браузере</label>
-          <label><input type="checkbox" id="consentSignals" /> Можно сохранять производные сигналы</label>
-          <label><input type="checkbox" id="consentNoMedical" /> Это coaching, не медицинская диагностика</label>
+          <label><input type="checkbox" id="consentLocal" /> Raw video stays in the browser</label>
+          <label><input type="checkbox" id="consentSignals" /> Save derived performance signals</label>
+          <label><input type="checkbox" id="consentNoMedical" /> This is coaching, not medical diagnosis</label>
+        </div>
+      </section>
+
+      <section class="product-panel calibration-panel" id="calibrationPanel">
+        <div>
+          <span class="section-kicker">Personal baseline</span>
+          <h2>Calibrate before measuring tilt</h2>
+          <p>Sit naturally for 10 seconds. Kinaesthetic AI learns your neutral jaw, shoulders and posture before showing high-risk alerts.</p>
+        </div>
+        <div class="product-actions">
+          <button class="primary" id="startCalibrationWizard" type="button">Calibrate 10 sec</button>
+          <button id="resetCalibration" type="button">Reset baseline</button>
+        </div>
+        <p class="muted-note" id="calibrationStatus">No personal baseline yet. Start the camera, then run calibration.</p>
+        <div class="calibration-guides investor-extra">
+          <button id="captureNeutral" type="button">Save neutral</button>
+          <button id="captureJaw" type="button">Save jaw lock</button>
+          <button id="captureShoulders" type="button">Save shoulders up</button>
+          <button id="captureRelease" type="button">Save release</button>
+          <button id="saveCalibration" type="button">Save full profile</button>
         </div>
       </section>
 
@@ -100,76 +120,76 @@
             <video id="cameraPreview" autoplay muted playsinline></video>
             <canvas id="landmarkOverlay" class="landmark-overlay"></canvas>
             <canvas id="browserCanvas" width="96" height="54" hidden></canvas>
-            <div class="camera-placeholder" id="cameraPlaceholder">Нажмите «Старт с камерой» — браузер запросит доступ к камере.</div>
+            <div class="camera-placeholder" id="cameraPlaceholder">Click "Start camera" -- the browser will ask for camera access.</div>
           </div>
           <div class="camera-trust-strip" aria-label="Live camera trust">
-            <span><b>Local CV</b> анализ идет в браузере</span>
-            <span><b>Auto-save</b> derived samples пишутся после согласия</span>
-            <span><b>No raw video</b> видео/аудио/кадры не сохраняются</span>
+            <span><b>Local CV</b> analysis runs in the browser</span>
+            <span><b>Auto-save</b> saves derived samples after consent</span>
+            <span><b>No raw video</b> video/audio/frames are never stored</span>
           </div>
           <div class="camera-help-panel" id="cameraHelpPanel" hidden role="status" aria-live="polite">
             <div>
-              <span>Камера не стартовала?</span>
-              <strong id="cameraHelpTitle">Проверьте доступ к камере</strong>
-              <p id="cameraHelpText">Разрешите камеру в браузере и нажмите повторить.</p>
+              <span>Camera did not start?</span>
+              <strong id="cameraHelpTitle">Check camera access</strong>
+              <p id="cameraHelpText">Allow camera access in the browser and retry.</p>
             </div>
             <ol id="cameraHelpSteps">
-              <li>Нажмите иконку замка или камеры в адресной строке.</li>
-              <li>Разрешите доступ к камере для этого сайта.</li>
-              <li>Закройте Zoom, OBS, Discord или другое приложение с камерой.</li>
+              <li>Click the lock or camera icon in the address bar.</li>
+              <li>Allow camera access for this site.</li>
+              <li>Close Zoom, OBS, Discord or another camera app.</li>
             </ol>
             <div class="camera-help-actions">
-              <button class="product-button primary" id="cameraRetryBtn" type="button">Повторить запуск</button>
-              <a class="product-button" href="/camera-check">Диагностика</a>
-              <a class="product-button" href="/demo">Смотреть demo</a>
+              <button class="product-button primary" id="cameraRetryBtn" type="button">Retry camera</button>
+              <a class="product-button" href="/camera-check">Diagnostics</a>
+              <a class="product-button" href="/demo">Watch demo</a>
             </div>
           </div>
           <div class="onboarding-strip compact investor-extra">
-            <div id="stepCamera"><span>01</span><strong>Камера</strong></div>
-            <div id="stepPosition"><span>02</span><strong>Лицо/плечи</strong></div>
-            <div id="stepSignal"><span>03</span><strong>Сигнал</strong></div>
+            <div id="stepCamera"><span>01</span><strong>Camera</strong></div>
+            <div id="stepPosition"><span>02</span><strong>Face/shoulders</strong></div>
+            <div id="stepSignal"><span>03</span><strong>Signal</strong></div>
             <div id="stepLive"><span>04</span><strong>Live</strong></div>
           </div>
         </article>
 
         <aside class="metrics-product product-panel">
           <article class="metric-card tilt" id="tiltCard">
-            <span>Риск тильта</span>
-            <strong id="tiltValue">—</strong>
+            <span>Tilt Risk</span>
+            <strong id="tiltValue">--</strong>
             <i><b id="tiltBar"></b></i>
-            <p class="facial-cue" id="facialCue" data-cue="neutral" data-strength="low">лицо нейтральное</p>
-            <p class="facial-cue posture-cue" id="postureCue" data-cue="neutral" data-strength="low">осанка ровная</p>
+            <p class="facial-cue" id="facialCue" data-cue="neutral" data-strength="low">face neutral</p>
+            <p class="facial-cue posture-cue" id="postureCue" data-cue="neutral" data-strength="low">posture neutral</p>
           </article>
 
           <div class="metric-grid">
-            <article class="metric-card"><span>Готовность</span><strong id="readinessValue">—</strong></article>
-            <article class="metric-card"><span>Восстановление</span><strong id="recoveryValue">—</strong></article>
-            <article class="metric-card investor-extra"><span>Лицо/напряжение</span><strong id="facialTensionValue">—</strong></article>
-            <article class="metric-card investor-extra"><span>Осанка/коллапс</span><strong id="postureTensionValue">—</strong></article>
+            <article class="metric-card"><span>Readiness</span><strong id="readinessValue">--</strong></article>
+            <article class="metric-card"><span>Recovery</span><strong id="recoveryValue">--</strong></article>
+            <article class="metric-card investor-extra"><span>Face tension</span><strong id="facialTensionValue">--</strong></article>
+            <article class="metric-card investor-extra"><span>Posture stress</span><strong id="postureTensionValue">--</strong></article>
           </div>
 
           <article class="command-card" role="status" aria-live="polite">
-            <span>Команда коуча</span>
-            <strong id="commandText">Нажмите старт с камерой.</strong>
-            <p id="commandMeta">Короткая команда без отвлечения от игры.</p>
+            <span>Coach command</span>
+            <strong id="commandText">Click Start camera.</strong>
+            <p id="commandMeta">One short command without distracting from the game.</p>
           </article>
 
           <article class="proof-product proof-inline">
             <span>Recovery proof</span>
-            <h2 id="proofHeadline">Собираем proof</h2>
-            <p id="proofDetails">Proof появится после live-сигналов.</p>
+            <h2 id="proofHeadline">Collecting proof</h2>
+            <p id="proofDetails">Proof appears after live signals.</p>
           </article>
 
           <article class="metric-card investor-extra">
-            <span>Live-график 60 сек</span>
+            <span>Live graph, 60 sec</span>
             <div class="graph-meta">
               <span class="product-badge" id="graphLiveBadge">OFFLINE</span>
-              <small id="graphUpdatedAt">обновлено: —</small>
+              <small id="graphUpdatedAt">updated: --</small>
             </div>
             <canvas id="miniGraph" width="800" height="160"></canvas>
             <div class="graph-meta">
               <span class="product-badge" id="llmHealthBadge">LLM fallback</span>
-              <small id="llmHealthMeta">latency: —мс · provider: local</small>
+              <small id="llmHealthMeta">latency: --ms - provider: local</small>
             </div>
           </article>
 
@@ -177,13 +197,13 @@
             <span>LLM health</span>
             <strong id="llmHealthValue">fallback</strong>
             <p class="muted-note" id="llmHealthRoute">route: local fallback</p>
-            <p class="muted-note" id="llmHealthUpdated">обновлено: —</p>
+            <p class="muted-note" id="llmHealthUpdated">updated: --</p>
           </article>
 
           <article class="metric-card investor-extra" id="perfCard">
             <span>Performance profile</span>
-            <strong id="perfFpsValue">—</strong>
-            <p class="muted-note" id="perfFrameSplit">frame —ms · pose —ms · face —ms</p>
+            <strong id="perfFpsValue">--</strong>
+            <p class="muted-note" id="perfFrameSplit">frame --ms - pose --ms - face --ms</p>
             <p class="muted-note" id="perfRuntimePolicy">policy: normal</p>
           </article>
         </aside>
@@ -193,48 +213,48 @@
         <article class="labels-product">
           <span>Live signal</span>
           <div class="signal-row">
-            <div class="detail-card"><span>Сигнал</span><strong id="signalValue">—</strong></div>
-            <div class="detail-card"><span>Челюсть</span><strong id="jawStatus">—</strong></div>
-            <div class="detail-card"><span>Плечи</span><strong id="shoulderStatus">—</strong></div>
-            <div class="detail-card"><span>FPS</span><strong id="fpsValue">—</strong></div>
+            <div class="detail-card"><span>Signal</span><strong id="signalValue">--</strong></div>
+            <div class="detail-card"><span>Jaw</span><strong id="jawStatus">--</strong></div>
+            <div class="detail-card"><span>Shoulders</span><strong id="shoulderStatus">--</strong></div>
+            <div class="detail-card"><span>FPS</span><strong id="fpsValue">--</strong></div>
           </div>
-          <p class="muted-note" id="statusMessage">Ожидаю запуск.</p>
+          <p class="muted-note" id="statusMessage">Waiting to start.</p>
         </article>
 
         <article class="labels-product">
           <span>Hotkeys</span>
-          <p>T = почувствовал тильт · H = помогло · F = false alert</p>
+          <p>T = felt tilt - H = helped - F = false alert</p>
           <div class="label-actions">
             <button id="btnFelt">T</button>
             <button id="btnHelped">H</button>
             <button id="btnFalse">F</button>
           </div>
-          <p class="muted-note" id="labelStatus">Готов собирать labels.</p>
+          <p class="muted-note" id="labelStatus">Ready to collect labels.</p>
         </article>
       </section>
 
       <details class="advanced-product">
         <summary>Advanced / validation tools</summary>
-        <p>Технические панели для тестеров, labels, LLM health, FPS и export. Игроку это не нужно во время сессии.</p>
+        <p>Technical panels for testers, labels, LLM health, FPS and export. The player does not need this during a session.</p>
       </details>
 
       <section class="lower-product-grid investor-extra">
         <article class="labels-product">
           <span>Session Score</span>
-          <strong id="sessionScoreHeadline">Появится после остановки сессии</strong>
-          <p id="sessionScoreDetails">Max Tilt, avg Readiness, recovery seconds, dominant lock и подтверждение тестера.</p>
+          <strong id="sessionScoreHeadline">Appears after stopping the session</strong>
+          <p id="sessionScoreDetails">Max Tilt, avg Readiness, recovery seconds, dominant lock and tester confirmation.</p>
         </article>
         <article class="labels-product">
           <span>Coach Memory</span>
-          <strong id="coachMemoryHeadline">Пока нет памяти</strong>
-          <p id="coachMemoryDetails">Нажимайте H/F/T после команды, чтобы система запоминала, что работает.</p>
+          <strong id="coachMemoryHeadline">No memory yet</strong>
+          <p id="coachMemoryDetails">Press H/F/T after commands so the system remembers what works.</p>
         </article>
         <article class="labels-product">
           <span>Validation Mode</span>
           <strong id="validationTimer">10:00</strong>
-          <p id="validationStatusLine">10-минутный тест: играйте, а labels ставьте hotkeys T/H/F.</p>
+          <p id="validationStatusLine">10-minute test: play normally and label with T/H/F hotkeys.</p>
           <div class="label-actions">
-            <button id="startValidationMode">Запустить</button>
+            <button id="startValidationMode">Start</button>
             <a class="product-button" href="/validation">Validation page</a>
           </div>
         </article>
@@ -255,4 +275,3 @@
     <script type="module" src="/product_session.js"></script>
   </body>
 </html>
-

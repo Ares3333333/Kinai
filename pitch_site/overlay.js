@@ -1,4 +1,4 @@
-import { kaiPost } from "/kai_api.js";
+﻿import { kaiPost } from "/kai_api.js";
 import { isMuted, setMuted, speak, unlockAudio } from "/tts_player.js";
 
 const nodes = {

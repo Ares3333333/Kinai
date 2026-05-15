@@ -1,9 +1,9 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kinaesthetic AI — privacy passport</title>
+    <title>Kinaesthetic AI - privacy passport</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -21,34 +21,34 @@
       <section class="content-hero">
         <h1>Privacy passport</h1>
         <p class="hero-subtitle">
-          Приватность — часть продукта. Кадры обрабатываются локально, на сервер уходят только числовые сигналы.
-          Аудио не записывается. Согласие фиксируется в audit log.
+          Privacy is part of the product. Camera frames are processed locally; the server receives only numeric derived signals.
+          Audio is not recorded. Consent is written to the audit log.
         </p>
       </section>
 
       <section class="demo-panel" style="margin-bottom:18px">
-        <p class="section-kicker">Точные обещания</p>
+        <p class="section-kicker">Exact promises</p>
         <ol class="privacy-list">
-          <li><strong>Raw video / audio.</strong> Кадры остаются на устройстве и не сохраняются.</li>
-          <li><strong>Что отправляется.</strong> Только производные сигналы: tilt/readiness/recovery, tension-маркеры и labels.</li>
-          <li><strong>Согласие.</strong> Первичный consent логируется в <code>data/consent_log.jsonl</code>.</li>
-          <li><strong>Не медицина.</strong> Это performance coaching, не диагностика и не лечение.</li>
+          <li><strong>Raw video / audio.</strong> Frames stay on the device and are not stored.</li>
+          <li><strong>What is sent.</strong> Only derived signals: tilt/readiness/recovery, tension markers, and labels.</li>
+          <li><strong>Consent.</strong> Initial consent is logged in <code>data/consent_log.jsonl</code>.</li>
+          <li><strong>Not medical.</strong> Kinaesthetic AI is performance coaching, not diagnosis or treatment.</li>
         </ol>
       </section>
 
       <section class="report-layout">
         <article class="demo-panel">
-          <p class="section-kicker">Что собирается</p>
+          <p class="section-kicker">What is stored</p>
           <ul class="privacy-list" id="storedList"></ul>
         </article>
         <article class="demo-panel">
-          <p class="section-kicker">Что не собирается</p>
+          <p class="section-kicker">What is not stored</p>
           <ul class="privacy-list" id="notStoredList"></ul>
         </article>
       </section>
 
       <section class="demo-panel" style="margin-top:18px">
-        <p class="section-kicker">Локальные файлы данных</p>
+        <p class="section-kicker">Local data files</p>
         <div class="content-grid" id="dataFiles"></div>
       </section>
     </main>
@@ -56,4 +56,3 @@
     <script src="/privacy.js"></script>
   </body>
 </html>
-

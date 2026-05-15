@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -28,10 +28,10 @@
       <section class="product-hero evidence-hero">
         <div>
           <span class="section-kicker">Investor evidence</span>
-          <h1>Evidence: signal → alert → recovery.</h1>
+          <h1>Evidence: signal -> alert -> recovery.</h1>
           <p>
-            Система видит body-state signals, дает короткую команду, измеряет восстановление
-            и собирает labels для валидации. Raw video/audio не сохраняются.
+            The system reads body-state signals, gives one short command, measures recovery,
+            and collects validation labels. Raw video and audio are never stored.
           </p>
           <div class="product-badges">
             <span class="product-badge ok" id="evidenceStatus">loading</span>
@@ -42,20 +42,20 @@
           </div>
         </div>
         <div class="product-actions">
-          <a class="product-button primary" href="/demo">Показать investor demo</a>
-          <a class="product-button" href="/play">Запустить live camera</a>
+          <a class="product-button primary" href="/demo">Show investor demo</a>
+          <a class="product-button" href="/play">Start live camera</a>
           <button id="exportPitchPackage" type="button" aria-describedby="exportStatus">Export package</button>
           <a class="product-button" href="mailto:start@sharprod.com?subject=Kinaesthetic%20AI%20pilot%20%2F%20investor%20intro">Contact founder</a>
         </div>
       </section>
 
-      <p class="play-mode-hint" id="modeHint">OFFLINE: нет live-сигнала. Для реального proof запустите /play.</p>
+      <p class="play-mode-hint" id="modeHint">OFFLINE: no live signal. Start /play for real proof.</p>
 
       <section class="evidence-onepager">
         <article class="evidence-card hero-proof">
           <span>Latest proof</span>
-          <strong id="proofHeadline">Пока недостаточно live-данных</strong>
-          <p id="proofDetails">Запустите /play или /demo, чтобы собрать recovery proof.</p>
+          <strong id="proofHeadline">Not enough live data yet</strong>
+          <p id="proofDetails">Start /play or /demo to collect recovery proof.</p>
         </article>
 
         <article class="evidence-card">
@@ -136,15 +136,15 @@
 
       <section class="evidence-card export-success" id="exportSuccess" hidden>
         <span>Package ready</span>
-        <strong>Investor proof JSON скачан.</strong>
-        <p id="exportSuccessDetails">Внутри: demo/live links, proof, validation summary, privacy passport. Raw video/audio/camera frames не включены.</p>
+        <strong>Investor proof JSON downloaded.</strong>
+        <p id="exportSuccessDetails">Includes demo/live links, proof, validation summary, and privacy passport. Raw video/audio/camera frames are not included.</p>
       </section>
 
       <section class="evidence-card contact-proof">
         <div>
           <span>Investor next step</span>
-          <strong>Ссылка уже готова для публичного просмотра.</strong>
-          <p>Если backend не подключён, сайт честно показывает public demo mode. Live camera остаётся локальной в браузере; proof package можно скачать прямо здесь.</p>
+          <strong>The public link is ready to view.</strong>
+          <p>If the backend is not connected, the site honestly shows public demo mode. Live camera analysis stays local in the browser; the proof package can be downloaded here.</p>
         </div>
         <div class="demo-action-row">
           <button class="product-button primary" id="downloadLocalEvidence" type="button">Download proof JSON</button>
@@ -157,4 +157,3 @@
     <script type="module" src="/evidence.js"></script>
   </body>
 </html>
-

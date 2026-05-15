@@ -1,5 +1,5 @@
-// Render proof card as a 1080x1350 PNG in the browser.
-// We never send raw frames anywhere — the canvas is generated locally and
+﻿// Render proof card as a 1080x1350 PNG in the browser.
+// We never send raw frames anywhere -- the canvas is generated locally and
 // downloaded by the user. This becomes shareable proof on Discord/Twitter.
 
 const W = 1080;
@@ -43,14 +43,14 @@ export function renderProofToCanvas(proof) {
 
   ctx.fillStyle = "#f4f6f8";
   ctx.font = "bold 96px Inter, system-ui, sans-serif";
-  const before = (proof.tilt_before ?? 0).toFixed(0);
-  const after = (proof.tilt_after ?? 0).toFixed(0);
-  ctx.fillText(`${before} → ${after}`, 80, 360);
+  const before = (proof.tilt_before - 0).toFixed(0);
+  const after = (proof.tilt_after - 0).toFixed(0);
+  ctx.fillText(`${before} -> ${after}`, 80, 360);
 
   ctx.fillStyle = "#8ee8ff";
   ctx.font = "32px Inter, system-ui, sans-serif";
   const seconds = proof.recovery_seconds ? `${Number(proof.recovery_seconds).toFixed(1)}s recovery` : "in-session recovery";
-  ctx.fillText(`tilt drop · ${seconds}`, 80, 420);
+  ctx.fillText(`tilt drop - ${seconds}`, 80, 420);
 
   ctx.fillStyle = "rgba(255,255,255,0.08)";
   roundRect(ctx, 80, 480, W - 160, 320, 24);
@@ -68,7 +68,7 @@ export function renderProofToCanvas(proof) {
 
   ctx.fillStyle = "#6f7885";
   ctx.font = "22px Inter, system-ui, sans-serif";
-  ctx.fillText(proof.watermark || "Kinaesthetic AI · localhost", 80, H - 130);
+  ctx.fillText(proof.watermark || "Kinaesthetic AI - localhost", 80, H - 130);
   ctx.fillText(proof.claim_disclaimer || "Performance coaching, not medical advice.", 80, H - 95);
 
   return canvas;

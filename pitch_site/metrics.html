@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -20,15 +20,15 @@
     <main class="content-page metrics-page">
       <section class="content-hero">
         <p class="section-kicker">Investor metrics</p>
-        <h1>Понятная воронка: тестеры, сигналы, labels, recovery proof.</h1>
+        <h1>A clear funnel: testers, signals, labels, recovery proof.</h1>
         <p class="hero-subtitle">
-          Эта страница показывает, что продукт не просто выглядит как демо: он собирает согласованные производные сигналы,
-          подтверждения от игроков и доказательства восстановления. Видео, аудио и кадры не сохраняются.
+          This page proves the product is not just a visual demo: it collects consent-based derived signals,
+          player feedback labels, and recovery evidence. Video, audio, and camera frames are never stored.
         </p>
         <div class="hero-actions">
-          <a class="button primary" href="/play">Открыть player mode</a>
+          <a class="button primary" href="/play">Open player mode</a>
           <a class="button secondary" href="/evidence">Investor evidence</a>
-          <button class="ghost" id="refreshMetrics">Обновить</button>
+          <button class="ghost" id="refreshMetrics">Refresh</button>
         </div>
       </section>
 
@@ -37,8 +37,8 @@
           <p class="section-kicker">Validation base</p>
           <h2 id="validationHeadline">0 / 100 testers</h2>
           <p class="muted" id="validationDetails">
-            Первый milestone: 100+ тестеров и 150+ feedback labels. Это дает инвестору простую картину: кто тестировал,
-            помогла ли команда, сколько было false alerts и как быстро падал tilt risk.
+            First milestone: 100+ testers and 150+ feedback labels. This gives investors a simple picture:
+            who tested, whether the command helped, false alert rate, and how fast tilt risk dropped.
           </p>
         </div>
         <div class="cohort-grid">
@@ -58,7 +58,7 @@
           <article><span>False alert</span><strong id="cohortFalseRate">--</strong></article>
         </div>
         <ul class="cohort-recent" id="cohortRecent">
-          <li>Пока нет labels. Запустите /play и отметьте T/H/F во время сессии.</li>
+          <li>No labels yet. Start /play and press T/H/F during the session.</li>
         </ul>
       </section>
 
@@ -66,22 +66,22 @@
         <article class="metric-tile hero-tile">
           <span>Derived samples</span>
           <strong id="samplesCount">--</strong>
-          <p>Сигналы body-state без raw video.</p>
+          <p>Body-state signals without raw video.</p>
         </article>
         <article class="metric-tile">
           <span>Sessions</span>
           <strong id="sessionsCount">--</strong>
-          <p>Запуски player/demo mode.</p>
+          <p>Player/demo mode runs.</p>
         </article>
         <article class="metric-tile">
           <span>Embeddings</span>
           <strong id="embeddingsCount">--</strong>
-          <p>Векторы похожих состояний.</p>
+          <p>Vectors of similar body states.</p>
         </article>
         <article class="metric-tile">
           <span>Feedback labels</span>
           <strong id="labelsCount">--</strong>
-          <p>Подтверждения от игроков.</p>
+          <p>Player confirmations and labels.</p>
         </article>
       </section>
 
@@ -91,7 +91,7 @@
           <div class="proof-card compact-proof">
             <span>Before / after</span>
             <h2 id="proofHeadline">Tilt -- -> --</h2>
-            <p id="proofMeta">Ждем live session или investor demo.</p>
+            <p id="proofMeta">Waiting for a live session or investor demo.</p>
           </div>
           <div class="metric-row"><span>Recovery delta</span><strong id="recoveryDelta">--</strong></div>
           <div class="metric-row"><span>Recovery seconds</span><strong id="recoverySeconds">--</strong></div>
@@ -102,7 +102,7 @@
           <p class="section-kicker">Auto-save pipeline</p>
           <h2 id="storageMode">Local JSONL</h2>
           <p class="muted" id="storageDetails">
-            /play сохраняет только derived signals, labels, session metadata и proof. Hosted database включается через Supabase env.
+            /play stores only derived signals, labels, session metadata, and proof. Hosted storage is enabled through Supabase env variables.
           </p>
           <div class="metric-row"><span>Raw video</span><strong>Never stored</strong></div>
           <div class="metric-row"><span>Camera analysis</span><strong>Browser local</strong></div>
@@ -113,8 +113,8 @@
       <section class="demo-panel command-table-panel">
         <div>
           <p class="section-kicker">Command effectiveness</p>
-          <h2>Какие команды реально снижают tilt</h2>
-          <p class="muted">Здесь появляются команды, которые игроки подтвердили кнопками H/F и recovery proof.</p>
+          <h2>Which commands actually reduce tilt</h2>
+          <p class="muted">Commands appear here after players confirm them with H/F and recovery proof.</p>
         </div>
         <div class="command-table" id="commandTable"></div>
       </section>
@@ -122,8 +122,8 @@
       <section class="demo-panel command-table-panel">
         <div>
           <p class="section-kicker">False alert control</p>
-          <h2>Ошибки не прячем</h2>
-          <p class="muted">False alerts нужны, чтобы настраивать sensitivity и personal baseline без обмана инвесторов.</p>
+          <h2>We do not hide errors</h2>
+          <p class="muted">False alerts are required to tune sensitivity and personal baselines honestly.</p>
         </div>
         <div class="command-table" id="falseAlertReview"></div>
       </section>
@@ -131,15 +131,14 @@
       <section class="section data-room">
         <div>
           <p class="section-kicker">Stored datasets</p>
-          <h2>Что реально пишется</h2>
-          <p class="muted">Только производные сигналы, события сессии, labels и proof metadata.</p>
+          <h2>What is actually stored</h2>
+          <p class="muted">Only derived signals, session events, labels, and proof metadata.</p>
         </div>
         <div class="data-file-list" id="dataFiles"></div>
-        <a class="button secondary" href="/data-room">Открыть data room</a>
+        <a class="button secondary" href="/data-room">Open data room</a>
       </section>
     </main>
 
     <script src="/metrics.js"></script>
   </body>
 </html>
-
