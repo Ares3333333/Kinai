@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 APP_ROOT = Path(__file__).resolve().parent
 SITE_ROOT = APP_ROOT / "pitch_site"
 STARTED_AT = time.time()
+SESSION_SUMMARIES: dict[str, dict[str, Any]] = {}
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8080
@@ -244,6 +245,62 @@ def mirror_to_supabase(kind: str, record: dict[str, Any], headers: dict[str, str
         return {"mirrored": False, "provider": "supabase", "error": str(exc)[:300]}
 
 
+def update_session_summary(kind: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    session_id = str(payload.get("session_id") or "").strip()
+    if not session_id:
+        return None
+    summary = SESSION_SUMMARIES.setdefault(
+        session_id,
+        {
+            "ok": True,
+            "session_id": session_id,
+            "samples": 0,
+            "tilt_max": 0,
+            "tilt_latest": 0,
+            "readiness_latest": 0,
+            "recovery_latest": 0,
+            "recovery_delta": 0,
+            "dominant_lock": "mixed",
+            "raw_media_stored": False,
+            "proof": {"headline": "Collecting proof"},
+        },
+    )
+    summary["updated_at"] = utc_now_iso()
+    if payload.get("tester_id"):
+        summary["tester_id"] = payload.get("tester_id")
+    if payload.get("game"):
+        summary["game"] = payload.get("game")
+    if kind in {"public_signal", "signal", "session_heartbeat"} or "tilt_risk" in payload:
+        summary["samples"] = int(summary.get("samples") or 0) + 1
+        tilt = float(payload.get("tilt_risk") or summary.get("tilt_latest") or 0)
+        readiness = float(payload.get("readiness") or summary.get("readiness_latest") or 0)
+        recovery = float(payload.get("recovery") or summary.get("recovery_latest") or 0)
+        previous_max = float(summary.get("tilt_max") or 0)
+        summary["tilt_latest"] = round(tilt)
+        summary["readiness_latest"] = round(readiness)
+        summary["recovery_latest"] = round(recovery)
+        summary["tilt_max"] = round(max(previous_max, tilt))
+        summary["recovery_delta"] = round(max(0, summary["tilt_max"] - tilt))
+        jaw = str(payload.get("jaw_tension") or "").lower()
+        shoulder = str(payload.get("shoulder_tension") or "").lower()
+        if "high" in jaw or float(payload.get("jaw_score") or 0) >= 55:
+            summary["dominant_lock"] = "jaw"
+        elif "high" in shoulder or float(payload.get("shoulder_score") or 0) >= 55:
+            summary["dominant_lock"] = "shoulders"
+        elif tilt >= 45:
+            summary["dominant_lock"] = "posture"
+        samples = int(summary.get("samples") or 0)
+        if samples >= 5:
+            summary["proof"] = {"headline": f"Tilt {summary['tilt_max']} -> {summary['tilt_latest']}"}
+        else:
+            summary["proof"] = {"headline": "Collecting proof"}
+    if kind == "public_session" and payload.get("action") == "end":
+        summary["ended_at"] = utc_now_iso()
+    return summary
+
+
 def health_payload() -> dict[str, Any]:
     return {
         "ok": True,
@@ -407,6 +464,27 @@ async def api_state() -> JSONResponse:
     return json_ok(DEMO_STATE)
 
 
+@app.get("/api/session")
+async def api_session(id: str | None = None) -> JSONResponse:
+    if id and id in SESSION_SUMMARIES:
+        return json_ok(SESSION_SUMMARIES[id])
+    return json_ok(
+        {
+            "ok": True,
+            "session_id": id,
+            "samples": 0,
+            "tilt_max": 0,
+            "tilt_latest": 0,
+            "readiness_latest": 0,
+            "recovery_latest": 0,
+            "recovery_delta": 0,
+            "dominant_lock": "mixed",
+            "raw_media_stored": False,
+            "proof": {"headline": "Collecting proof"},
+        }
+    )
+
+
 @app.get("/api/storage-health")
 @app.get("/api/hosted-storage")
 async def api_storage() -> JSONResponse:
@@ -515,6 +593,7 @@ async def api_queue_flush(request: Request) -> JSONResponse:
             continue
         kind = str(item.get("kind") or item.get("path") or "queued_event").strip("/").replace("/", "_")[:80]
         event_payload = item.get("payload") if isinstance(item.get("payload"), dict) else item
+        update_session_summary(kind, event_payload)
         mirrored.append(mirror_to_supabase(kind, event_payload, headers=headers))
     return json_ok({"ok": True, "mode": "public_site", "stored": any(row.get("mirrored") for row in mirrored), "replay_count": len(mirrored), "storage": storage_status(), "raw_media_stored": False})
 
@@ -535,8 +614,22 @@ async def api_write(path: str, request: Request) -> JSONResponse:
         payload = {}
     kind = WRITE_ROUTES.get(api_path, api_path.strip("/").replace("/", "_") or "event")
     headers = {k.lower(): v for k, v in request.headers.items()}
+    if kind == "public_session" and not payload.get("session_id"):
+        payload = {**payload, "session_id": f"web-{int(time.time() * 1000)}"}
+    summary = update_session_summary(kind, payload)
     storage = mirror_to_supabase(kind, payload, headers=headers)
-    return json_ok({"ok": True, "mode": "public_site", "stored": bool(storage.get("mirrored")), "storage": storage, "raw_media_stored": False})
+    response = {
+        "ok": True,
+        "mode": "public_site",
+        "stored": bool(storage.get("mirrored")),
+        "storage": storage,
+        "raw_media_stored": False,
+    }
+    if kind == "public_session":
+        response["session"] = {"session_id": payload.get("session_id")}
+    if summary:
+        response["summary"] = summary
+    return json_ok(response)
 
 
 @app.get("/{path:path}")
