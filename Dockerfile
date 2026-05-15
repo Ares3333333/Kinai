@@ -14,4 +14,4 @@ COPY . /app
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "echo Starting Kinaesthetic AI on HOST=$HOST PORT=$PORT && python timeweb_server.py"]
+CMD ["sh", "-c", "export HOST=0.0.0.0 PORT=8080; echo Starting Kinaesthetic AI on HOST=$HOST PORT=$PORT; exec python timeweb_server.py"]
