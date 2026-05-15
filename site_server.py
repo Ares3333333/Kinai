@@ -24,8 +24,40 @@ APP_ROOT = Path(__file__).resolve().parent
 SITE_ROOT = APP_ROOT / "pitch_site"
 OVERLAY_STATE_PATH = APP_ROOT / "data" / "overlay_state.json"
 DATA_DIR = APP_ROOT / "data"
-PORT = int(os.getenv("PORT", "8502"))
-HOST = os.getenv("HOST", "0.0.0.0" if os.getenv("PORT") else "localhost")
+
+
+def _env_port() -> int:
+    raw = os.getenv("PORT", "").strip()
+    if not raw:
+        return 8502
+    try:
+        port = int(raw)
+    except ValueError:
+        print(f"Invalid PORT={raw!r}; falling back to 8080 for container runtime.")
+        return 8080
+    if port <= 0 or port > 65535:
+        print(f"Out-of-range PORT={raw!r}; falling back to 8080 for container runtime.")
+        return 8080
+    return port
+
+
+def _bind_host() -> str:
+    explicit = os.getenv("KAI_BIND_HOST", "").strip()
+    if explicit:
+        return explicit
+    raw = os.getenv("HOST", "").strip()
+    if os.getenv("PORT"):
+        # Public container platforms sometimes inject HOST values that are not
+        # bindable inside the container. Always listen on all interfaces there.
+        if raw in {"", "0.0.0.0", "::", "localhost", "127.0.0.1"}:
+            return "0.0.0.0"
+        print(f"Ignoring HOST={raw!r}; binding container server to 0.0.0.0.")
+        return "0.0.0.0"
+    return raw or "localhost"
+
+
+PORT = _env_port()
+HOST = _bind_host()
 SSL_CERT_FILE = os.getenv("SSL_CERT_FILE", "").strip()
 SSL_KEY_FILE = os.getenv("SSL_KEY_FILE", "").strip()
 LIVE_MAX_AGE_SECONDS = 2.0
