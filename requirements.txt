@@ -1,9 +1,0 @@
-streamlit>=1.37.0
-opencv-python>=4.9.0.80
-mediapipe>=0.10.14
-numpy>=1.26.4,<2.0
-pandas>=2.2.0
-openai>=1.78.0
-python-dotenv>=1.0.1
-sounddevice>=0.4.7
-pynput>=1.7.7
