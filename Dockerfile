@@ -7,13 +7,15 @@ ENV PORT=8080
 
 WORKDIR /app
 
-COPY requirements-site.txt /app/requirements-site.txt
-RUN pip install --no-cache-dir -r /app/requirements-site.txt
+COPY requirements-site.txt ./requirements-site.txt
+RUN python -m pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements-site.txt
 
-COPY . /app
+COPY timeweb_server.py ./timeweb_server.py
+COPY pitch_site ./pitch_site
+COPY docs ./docs
+COPY README.md ./README.md
 
 EXPOSE 8080
 
-# Platform health probe: GET /health on PORT (default 8080). No Docker HEALTHCHECK — avoids conflicting with Timeweb App Platform probes.
-
-CMD ["python", "-u", "timeweb_server.py"]
+CMD ["python", "-u", "/app/timeweb_server.py"]
