@@ -14,6 +14,6 @@ COPY . /app
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()" || exit 1
+# Platform health probe: GET /health on PORT (default 8080). No Docker HEALTHCHECK — avoids conflicting with Timeweb App Platform probes.
 
 CMD ["python", "-u", "timeweb_server.py"]
