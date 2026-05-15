@@ -7,15 +7,11 @@ ENV PORT=8080
 
 WORKDIR /app
 
-COPY requirements-site.txt ./requirements-site.txt
-RUN python -m pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements-site.txt
-
-COPY timeweb_server.py ./timeweb_server.py
-COPY pitch_site ./pitch_site
-COPY docs ./docs
-COPY README.md ./README.md
+COPY timeweb_server.py /app/timeweb_server.py
+COPY pitch_site /app/pitch_site
+COPY docs /app/docs
+COPY README.md /app/README.md
 
 EXPOSE 8080
 
-CMD ["python", "-u", "/app/timeweb_server.py"]
+ENTRYPOINT ["python", "-u", "/app/timeweb_server.py"]
