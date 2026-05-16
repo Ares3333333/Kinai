@@ -29,7 +29,7 @@ export function setVolume(value) {
 }
 
 export function getVoiceLang() {
-  return localStorage.getItem(LANG_KEY) || "ru";
+  return localStorage.getItem(LANG_KEY) || "en";
 }
 
 export function setVoiceLang(value) {

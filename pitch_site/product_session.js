@@ -1715,7 +1715,7 @@ function renderVoiceControls() {
   const lang = q("voiceLang");
   if (toggle) toggle.textContent = isMuted() ? "Voice OFF" : "Voice ON";
   if (volume) volume.value = String(Math.round(getVolume() * 100));
-  if (lang) lang.value = getVoiceLang();
+  if (lang) lang.value = "en";
 }
 
 function wire() {

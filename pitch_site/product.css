@@ -386,6 +386,42 @@ body.product-body {
   justify-content: flex-end;
 }
 
+.baseline-action-stack {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.baseline-voice-actions {
+  gap: 6px;
+  opacity: 0.86;
+}
+
+.baseline-voice-actions button {
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 11px;
+  border-radius: 7px;
+}
+
+.baseline-voice-actions .voice-control {
+  min-height: 30px;
+  padding: 0 8px;
+  gap: 7px;
+  font-size: 10px;
+  border-radius: 7px;
+}
+
+.baseline-voice-actions .voice-control input {
+  width: 70px;
+}
+
+.baseline-voice-actions .voice-control select {
+  min-height: 24px;
+  font-size: 10px;
+  padding: 0 6px;
+}
+
 .calibration-panel .product-actions button {
   min-height: 42px;
   padding: 0 18px;

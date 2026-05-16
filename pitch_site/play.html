@@ -63,26 +63,6 @@
         <p class="play-start-hint" id="playStartHint" role="status" aria-live="polite">Click start and allow camera access. Raw video is not stored.</p>
         <p class="play-mode-hint" id="modeHint" role="status" aria-live="polite">OFFLINE: analysis is not running. Click "Start camera".</p>
 
-        <div class="product-actions voice-actions">
-          <button id="voiceToggle" type="button">Voice ON</button>
-          <button id="voiceTest" type="button">Test sound</button>
-          <label class="voice-control">
-            <span>Sensitivity</span>
-            <select id="sensitivityProfile" aria-label="Sensitivity profile">
-              <option value="low">Low</option>
-              <option value="normal" selected>Normal</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-          <label class="voice-control">
-            <span>Voice volume</span>
-            <input id="voiceVolume" type="range" min="0" max="100" value="80" />
-          </label>
-          <select id="voiceLang" aria-label="Voice coach language">
-            <option value="ru">RU</option>
-            <option value="en">EN</option>
-          </select>
-        </div>
       </section>
 
       <section class="consent-panel product-panel investor-extra" id="consentPanel">
@@ -104,9 +84,27 @@
           <h2>Baseline</h2>
           <p>Ten calm seconds set your neutral jaw, shoulders and posture.</p>
         </div>
-        <div class="product-actions">
-          <button class="primary" id="startCalibrationWizard" type="button">Calibrate</button>
-          <button id="resetCalibration" type="button">Reset baseline</button>
+        <div class="baseline-action-stack">
+          <div class="product-actions">
+            <button class="primary" id="startCalibrationWizard" type="button">Calibrate</button>
+            <button id="resetCalibration" type="button">Reset baseline</button>
+          </div>
+          <div class="product-actions voice-actions baseline-voice-actions">
+            <button id="voiceToggle" type="button">Voice ON</button>
+            <button id="voiceTest" type="button">Test sound</button>
+            <label class="voice-control">
+              <span>Sensitivity</span>
+              <select id="sensitivityProfile" aria-label="Sensitivity profile">
+                <option value="low">Low</option>
+                <option value="normal" selected>Normal</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <label class="voice-control">
+              <span>Volume</span>
+              <input id="voiceVolume" type="range" min="0" max="100" value="80" />
+            </label>
+          </div>
         </div>
         <p class="muted-note" id="calibrationStatus">No personal baseline yet. Start the camera, then run calibration.</p>
         <div class="calibration-guides investor-extra">
