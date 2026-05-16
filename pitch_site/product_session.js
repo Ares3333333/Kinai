@@ -1040,32 +1040,26 @@ async function startCamera() {
       error.name = "NotAllowedError";
       throw error;
     }
-    setStartHint("The browser will ask for camera access. Click Allow.", { error: false });
-    const cameraRequest = requestCameraStream();
-    let timeoutId = null;
-    const timeout = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => {
-        const error = new Error("camera_request_timeout");
-        error.name = "TimeoutError";
-        reject(error);
-      }, 20000);
-    });
-    cameraStream = await Promise.race([cameraRequest, timeout]);
-    if (timeoutId) clearTimeout(timeoutId);
+    setStartHint("The browser will ask for camera access. Click Allow. Keep this tab open.", { error: false });
+    // Do not race getUserMedia with a short timeout: some browsers keep the
+    // permission prompt pending until the user notices the address-bar icon.
+    // Timing out early leaves the first stream request unresolved and makes
+    // users press Stop/Start before the camera becomes usable.
+    cameraStream = await requestCameraStream();
     video.srcObject = cameraStream;
+    video.muted = true;
+    video.setAttribute("playsinline", "");
     await new Promise((resolve) => {
       if (video.readyState >= 2) return resolve();
       video.onloadedmetadata = () => resolve();
-      setTimeout(resolve, 1500);
+      setTimeout(resolve, 2500);
     });
-    await video.play().catch(() => {});
+    await video.play();
     if (placeholder) placeholder.style.display = "none";
     cameraErrorActive = false;
     setCameraHelp(null);
     setStep("stepCamera", true);
     text("cameraState", "active");
-    setStartHint("Camera is active. Pose and face analysis runs locally.", { error: false });
-    setStartHint("Camera active. Pose and face analysis runs locally.", { error: false });
     setStartHint("Camera is active. Pose and face analysis runs locally.", { error: false });
     return true;
   } catch (err) {

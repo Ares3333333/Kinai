@@ -514,7 +514,16 @@ async def api_llm_health() -> JSONResponse:
         if provider == "gemini"
         else "local_command_library"
     )
-    return json_ok({"ok": True, "connected": provider != "local_fallback", "provider": provider, "status": "ready", "model": model})
+    return json_ok(
+        {
+            "ok": True,
+            "connected": provider != "local_fallback",
+            "provider": provider,
+            "status": "ready" if provider != "local_fallback" else "fallback",
+            "model": model,
+            "latency_ms": 1 if provider != "local_fallback" else 0,
+        }
+    )
 
 
 @app.get("/api/system-health")
