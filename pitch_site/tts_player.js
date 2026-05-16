@@ -49,14 +49,14 @@ export async function unlockAudio() {
   }
 }
 
-export function playEarcon(kind = "alert") {
-  if (isMuted()) return;
+export async function playEarcon(kind = "alert") {
+  if (isMuted()) return false;
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!audioContext && AudioCtx) audioContext = new AudioCtx();
-    if (!audioContext) return;
+    if (!audioContext) return false;
     if (audioContext.state === "suspended") {
-      audioContext.resume().catch(() => {});
+      await audioContext.resume();
     }
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -70,8 +70,10 @@ export function playEarcon(kind = "alert") {
     gain.connect(audioContext.destination);
     osc.start(now);
     osc.stop(now + 0.36);
+    return true;
   } catch (_err) {
     // Text command still remains visible.
+    return false;
   }
 }
 
@@ -85,7 +87,7 @@ export function speak(text, options = {}) {
   lastSpokenAt = now;
 
   const lang = String(options.lang || getVoiceLang()).startsWith("en") ? "en-US" : "ru-RU";
-  playEarcon(options.kind || "alert");
+  void playEarcon(options.kind || "alert");
   if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
     return false;
   }
@@ -100,7 +102,7 @@ export function speak(text, options = {}) {
     window.speechSynthesis.speak(utter);
     return true;
   } catch (_err) {
-    playEarcon(options.kind || "alert");
+    void playEarcon(options.kind || "alert");
     return false;
   }
 }

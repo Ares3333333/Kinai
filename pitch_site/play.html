@@ -10,6 +10,9 @@
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/assets/kai-ai-scan-player.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preload" href="/models/pose_landmarker_lite.task" as="fetch" crossorigin />
+    <link rel="preload" href="/models/face_landmarker.task" as="fetch" crossorigin />
+    <link rel="modulepreload" href="/vendor/mediapipe/vision_bundle.mjs" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/product.css" />
   </head>
@@ -60,8 +63,9 @@
         <p class="play-start-hint" id="playStartHint" role="status" aria-live="polite">Click start and allow camera access. Raw video is not stored.</p>
         <p class="play-mode-hint" id="modeHint" role="status" aria-live="polite">OFFLINE: analysis is not running. Click "Start camera".</p>
 
-        <div class="product-actions investor-extra">
+        <div class="product-actions voice-actions">
           <button id="voiceToggle" type="button">Voice ON</button>
+          <button id="voiceTest" type="button">Test sound</button>
           <label class="voice-control">
             <span>Sensitivity</span>
             <select id="sensitivityProfile" aria-label="Sensitivity profile">

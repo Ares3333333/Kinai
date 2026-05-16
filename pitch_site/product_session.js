@@ -1080,20 +1080,36 @@ async function startCamera() {
   }
 }
 
-async function ensureEngine() {
-  if (cvEngine) return cvEngine;
+function engineInputs() {
   const video = q("cameraPreview");
   const overlayCanvas = q("landmarkOverlay");
   const signalCanvas = q("browserCanvas");
   const baselineProvider = () => browserCvBaselineProfile();
+  return { video, overlayCanvas, signalCanvas, baselineProvider };
+}
+
+function startMotionPreviewEngine() {
+  if (cvEngine) return cvEngine;
+  cvEngine = createMotionFallbackEngine(engineInputs());
+  text("cvMode", "loading MediaPipe");
+  text("statusMessage", "Fast preview is live. Loading face + pose points...");
+  return cvEngine;
+}
+
+async function ensureEngine(options = {}) {
+  const forceMediaPipe = Boolean(options.forceMediaPipe);
+  if (cvEngine && !forceMediaPipe) return cvEngine;
+  const inputs = engineInputs();
   text("statusMessage", "Loading MediaPipe Pose + Face in the browser...");
   try {
-    cvEngine = await createBrowserCvEngine({ video, overlayCanvas, signalCanvas, baselineProvider });
+    cvEngine = await createBrowserCvEngine(inputs);
     text("cvMode", "MediaPipe Web");
+    text("statusMessage", "MediaPipe face + pose points are active.");
   } catch (error) {
     console.warn("Browser CV fallback", error);
-    cvEngine = createMotionFallbackEngine({ video, overlayCanvas, signalCanvas, baselineProvider });
+    if (!cvEngine || forceMediaPipe) cvEngine = createMotionFallbackEngine(inputs);
     text("cvMode", "motion fallback");
+    text("statusMessage", "Using fast camera fallback while MediaPipe is unavailable.");
   }
   return cvEngine;
 }
@@ -1411,12 +1427,12 @@ function maybeSpeakCoach(signals) {
   if (spoken) lastSpokenCommand = command;
 }
 
-function confirmVoiceReady() {
+async function confirmVoiceReady() {
   if (isMuted()) setMuted(false);
   const now = Date.now();
   if (now - lastVoiceReadyAt < 20_000) return;
   lastVoiceReadyAt = now;
-  playEarcon("recovery");
+  await playEarcon("recovery");
   speak("Voice coach ready.", {
     lang: "en",
     cooldownMs: 1_000,
@@ -1604,8 +1620,8 @@ async function startProductDemo(event = null) {
   text("productStatus", "starting camera");
   setMuted(false);
   await unlockAudio();
-  playEarcon("recovery");
-  confirmVoiceReady();
+  await playEarcon("recovery");
+  await confirmVoiceReady();
   text("productStatus", "starting camera");
   const ok = await startCamera();
   if (!ok) {
@@ -1618,7 +1634,7 @@ async function startProductDemo(event = null) {
     return;
   }
   await startSession();
-  await ensureEngine();
+  startMotionPreviewEngine();
   clearInterval(tickTimer);
   clearInterval(signalTimer);
   clearInterval(heartbeatTimer);
@@ -1631,6 +1647,9 @@ async function startProductDemo(event = null) {
   heartbeatTimer = setInterval(sendHeartbeat, CV_CONFIG.live.heartbeatMs);
   await tick();
   await sendHeartbeat();
+  ensureEngine({ forceMediaPipe: true }).catch((error) => {
+    console.warn("MediaPipe background load failed", error);
+  });
   text("productStatus", "LIVE - Browser CV");
   setRuntimeMode("live");
   text("privacyLine", "Raw video stays in browser. Backend receives derived signals and labels only.");
@@ -1724,10 +1743,23 @@ function wire() {
     setMuted(nextMuted);
     if (!nextMuted) {
       await unlockAudio();
-      playEarcon("recovery");
+      await playEarcon("recovery");
       speak("Voice coach on.", { lang: "en", cooldownMs: 500, kind: "recovery" });
     }
     renderVoiceControls();
+  });
+  q("voiceTest")?.addEventListener("click", async () => {
+    setMuted(false);
+    await unlockAudio();
+    const played = await playEarcon("recovery");
+    const spoken = speak("Test voice. Voice coach is ready.", { lang: "en", cooldownMs: 0, kind: "recovery" });
+    renderVoiceControls();
+    text(
+      "statusMessage",
+      played || spoken
+        ? "Voice test sent. If you hear nothing, check browser tab mute and Windows output device."
+        : "Voice is enabled, but this browser blocked audio. Click Start camera once, then Test sound.",
+    );
   });
   q("voiceVolume")?.addEventListener("input", (event) => {
     setVolume(Number(event.target.value || 80) / 100);
