@@ -37,7 +37,6 @@ export function setVoiceLang(value) {
 }
 
 export async function unlockAudio() {
-  if (unlocked) return true;
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx && !audioContext) audioContext = new AudioCtx();
@@ -56,18 +55,21 @@ export function playEarcon(kind = "alert") {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!audioContext && AudioCtx) audioContext = new AudioCtx();
     if (!audioContext) return;
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
     const now = audioContext.currentTime;
     osc.type = "sine";
-    osc.frequency.value = kind === "recovery" ? 660 : 440;
+    osc.frequency.value = kind === "recovery" ? 740 : 520;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.02, getVolume() * 0.12), now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.04, getVolume() * 0.22), now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
     osc.connect(gain);
     gain.connect(audioContext.destination);
     osc.start(now);
-    osc.stop(now + 0.28);
+    osc.stop(now + 0.36);
   } catch (_err) {
     // Text command still remains visible.
   }
@@ -83,11 +85,12 @@ export function speak(text, options = {}) {
   lastSpokenAt = now;
 
   const lang = String(options.lang || getVoiceLang()).startsWith("en") ? "en-US" : "ru-RU";
+  playEarcon(options.kind || "alert");
   if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-    playEarcon(options.kind || "alert");
     return false;
   }
   try {
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
     const utter = new SpeechSynthesisUtterance(phrase);
     utter.lang = lang;
     utter.rate = 1.05;

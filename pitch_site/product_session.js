@@ -1,7 +1,7 @@
 ﻿import { createBrowserCvEngine, createMotionFallbackEngine } from "/browser_cv.js";
 import { kaiBeacon, kaiPost, recordConsent } from "/kai_api.js";
 import { hasConsent, requireConsent } from "/consent.js";
-import { getVoiceLang, getVolume, isMuted, setMuted, setVoiceLang, setVolume, speak, unlockAudio } from "/tts_player.js";
+import { getVoiceLang, getVolume, isMuted, playEarcon, setMuted, setVoiceLang, setVolume, speak, unlockAudio } from "/tts_player.js";
 import { CV_CONFIG } from "/cv_config.js";
 
 const q = (id) => document.getElementById(id);
@@ -1412,10 +1412,11 @@ function maybeSpeakCoach(signals) {
 }
 
 function confirmVoiceReady() {
-  if (isMuted()) return;
+  if (isMuted()) setMuted(false);
   const now = Date.now();
   if (now - lastVoiceReadyAt < 20_000) return;
   lastVoiceReadyAt = now;
+  playEarcon("recovery");
   speak("Voice coach ready.", {
     lang: "en",
     cooldownMs: 1_000,
@@ -1601,7 +1602,9 @@ async function startProductDemo(event = null) {
   q("consentPanel")?.classList.remove("needs-attention");
   setStartButton("starting");
   text("productStatus", "starting camera");
+  setMuted(false);
   await unlockAudio();
+  playEarcon("recovery");
   confirmVoiceReady();
   text("productStatus", "starting camera");
   const ok = await startCamera();
@@ -1721,6 +1724,7 @@ function wire() {
     setMuted(nextMuted);
     if (!nextMuted) {
       await unlockAudio();
+      playEarcon("recovery");
       speak("Voice coach on.", { lang: "en", cooldownMs: 500, kind: "recovery" });
     }
     renderVoiceControls();
