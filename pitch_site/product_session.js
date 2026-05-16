@@ -28,6 +28,7 @@ let lastCoachCommand = "";
 let lastCoachProvider = "local";
 let lastSpokenCommand = "";
 let lastHighRiskState = false;
+let lastVoiceReadyAt = 0;
 let lastUiCommand = "";
 let lastUiCommandAt = 0;
 let tickInFlight = false;
@@ -1394,18 +1395,32 @@ async function exportProofPackage() {
 function maybeSpeakCoach(signals) {
   const command = String(signals.recommendation || "").trim();
   if (/^calibrat/i.test(command)) return;
-  const highRisk = Number(signals.tilt_risk || 0) >= 72 || signals.jaw_tension === "high" || signals.shoulder_tension === "high";
+  const tilt = Number(signals.tilt_risk || 0);
+  const highRisk = tilt >= 68 || signals.jaw_tension === "high" || signals.shoulder_tension === "high";
+  const risingRisk = tilt >= 45 || Number(signals.facial_tension || 0) >= 58 || Number(signals.posture_stress || 0) >= 58;
   const commandChanged = command && command !== lastSpokenCommand;
   const crossedHighRisk = highRisk && !lastHighRiskState;
   lastHighRiskState = highRisk;
   if (!command || (!commandChanged && !crossedHighRisk)) return;
-  if (!highRisk && Number(signals.tilt_risk || 0) < 60) return;
-  speak(command, {
+  if (!highRisk && !risingRisk) return;
+  const spoken = speak(command, {
     lang: getVoiceLang(),
-    cooldownMs: 10_000,
+    cooldownMs: highRisk ? 8_000 : 14_000,
     kind: signals.recovery >= 55 ? "recovery" : "alert",
   });
-  lastSpokenCommand = command;
+  if (spoken) lastSpokenCommand = command;
+}
+
+function confirmVoiceReady() {
+  if (isMuted()) return;
+  const now = Date.now();
+  if (now - lastVoiceReadyAt < 20_000) return;
+  lastVoiceReadyAt = now;
+  speak("Voice coach ready.", {
+    lang: "en",
+    cooldownMs: 1_000,
+    kind: "recovery",
+  });
 }
 
 function captureCalibrationPhase(phase) {
@@ -1587,6 +1602,7 @@ async function startProductDemo(event = null) {
   setStartButton("starting");
   text("productStatus", "starting camera");
   await unlockAudio();
+  confirmVoiceReady();
   text("productStatus", "starting camera");
   const ok = await startCamera();
   if (!ok) {
@@ -1700,8 +1716,13 @@ function wire() {
   q("startCalibrationWizard")?.addEventListener("click", startCalibrationWizard);
   q("resetCalibration")?.addEventListener("click", resetCalibrationProfile);
   q("startValidationMode")?.addEventListener("click", startValidationTimer);
-  q("voiceToggle")?.addEventListener("click", () => {
-    setMuted(!isMuted());
+  q("voiceToggle")?.addEventListener("click", async () => {
+    const nextMuted = !isMuted();
+    setMuted(nextMuted);
+    if (!nextMuted) {
+      await unlockAudio();
+      speak("Voice coach on.", { lang: "en", cooldownMs: 500, kind: "recovery" });
+    }
     renderVoiceControls();
   });
   q("voiceVolume")?.addEventListener("input", (event) => {
