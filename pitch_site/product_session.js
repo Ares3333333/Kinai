@@ -7,7 +7,9 @@ import { CV_CONFIG } from "/cv_config.js";
 const q = (id) => document.getElementById(id);
 const surface = document.body.dataset.surface || "demo";
 const params = new URLSearchParams(window.location.search);
-const testerId = sanitizeLabel(params.get("tester") || params.get("tester_id") || localStorage.getItem("kinaesthetic_tester_id") || "anonymous");
+const testerBase = sanitizeLabel(params.get("tester") || params.get("tester_id") || localStorage.getItem("kinaesthetic_tester_base") || "tester");
+const testerLaunchId = `launch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+const testerId = sanitizeLabel(`${testerBase}-${testerLaunchId}`);
 const game = sanitizeLabel(params.get("game") || localStorage.getItem("kinaesthetic_game") || "");
 
 let sessionId = "";
@@ -807,9 +809,22 @@ async function startSession() {
   });
   sessionId = response?.session?.session_id || `web-${Date.now()}`;
   localStorage.setItem("kinaesthetic_public_session_id", sessionId);
+  localStorage.setItem("kinaesthetic_tester_base", testerBase);
   localStorage.setItem("kinaesthetic_tester_id", testerId);
   if (game) localStorage.setItem("kinaesthetic_game", game);
   text("sessionIdLabel", `session: ${sessionId}`);
+  await postJSON("/api/study-event", {
+    event: "session_started",
+    label: "new_tester_launch",
+    source: "browser_cv",
+    mode: surface,
+    session_id: sessionId,
+    tester_id: testerId,
+    tester_base: testerBase,
+    game,
+    page_url: window.location.href,
+    raw_media_stored: false,
+  }).catch(() => {});
   return sessionId;
 }
 
