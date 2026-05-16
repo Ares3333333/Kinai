@@ -1557,7 +1557,13 @@ async function refreshSessionProof() {
   }
 }
 
-async function startProductDemo() {
+async function startProductDemo(event = null) {
+  const trustedClick = Boolean(event?.isTrusted);
+  if (!trustedClick) {
+    setStartHint("Click Start camera to allow camera access. The browser requires a user action.", { error: false });
+    setStartButton("idle");
+    return;
+  }
   if (cameraStartInFlight) {
     setStartHint("Camera is already starting. Confirm browser permission.", { error: false });
     return;
@@ -1680,8 +1686,8 @@ function wire() {
   setStartButton("idle");
   text("testerBadge", `tester: ${testerId}`);
   text("gameBadge", `game: ${game || "-"}`);
-  q("startProductDemo")?.addEventListener("click", startProductDemo);
-  q("cameraRetryBtn")?.addEventListener("click", startProductDemo);
+  q("startProductDemo")?.addEventListener("click", (event) => startProductDemo(event));
+  q("cameraRetryBtn")?.addEventListener("click", (event) => startProductDemo(event));
   q("stopProductDemo")?.addEventListener("click", stopProductDemo);
   q("btnFelt")?.addEventListener("click", () => submitLabel("felt_tension"));
   q("btnHelped")?.addEventListener("click", () => submitLabel("helped"));
@@ -1724,12 +1730,12 @@ function wire() {
     }, 1200);
   };
   window.__runDemoLockTestMode = runDemoLockTestMode;
-  q("demoLockBtn")?.addEventListener("click", async () => {
+  q("demoLockBtn")?.addEventListener("click", async (event) => {
     if (params.get("demo_lock_test") === "1") {
       runDemoLockTestMode();
       return;
     }
-    if (!tickTimer) await startProductDemo();
+    if (!tickTimer) await startProductDemo(event);
     demoLockActive = true;
     demoLockStartedAt = Date.now();
     text("productStatus", `Demo lock ${demoLockSeconds}s active`);
@@ -1792,15 +1798,10 @@ function wire() {
   queueFlushTimer = setInterval(flushOfflineQueue, 5000);
   flushOfflineQueue();
 
-  // Auto-start path: when user clicked "Start a session" on the landing
-  // page, we land here with ?autostart=1. Drop them straight into camera +
-  // live coach without making them hunt for the button.
   if (params.get("autostart") === "1" || params.get("tester_mode") === "1") {
-    setTimeout(() => {
-      startProductDemo().catch(() => {
-        text("productStatus", "failed to start");
-      });
-    }, 250);
+    setStartHint("Click Start camera to allow camera access. The browser requires a user action.", { error: false });
+    text("productStatus", "ready");
+    setStartButton("idle");
   }
 }
 
