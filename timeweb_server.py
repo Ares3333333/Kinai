@@ -4,12 +4,13 @@ import json
 import mimetypes
 import os
 import time
+import uuid
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 
 APP_ROOT = Path(__file__).resolve().parent
@@ -42,6 +43,7 @@ def _bind_host() -> str:
 HOST = _bind_host()
 PORT = _env_port()
 STARTED_AT = time.time()
+VISITOR_COOKIE = "kai_visitor_id"
 
 ROUTES = {
     "/": "index.html",
@@ -175,31 +177,233 @@ def mirror_to_supabase(kind: str, payload: dict, headers=None) -> dict:
         return {"mirrored": False, "provider": "supabase", "error": str(exc)[:300]}
 
 
+def fetch_supabase_events(limit: int = 5000) -> list[dict]:
+    status = storage_status()
+    if not status["configured"]:
+        return []
+    supabase_url = env_value("SUPABASE_URL").rstrip("/")
+    supabase_key = env_value("SUPABASE_SERVICE_ROLE_KEY")
+    table = env_value("SUPABASE_EVENTS_TABLE", "kinaesthetic_events")
+    params = urlencode(
+        {
+            "select": "event_type,session_id,tester_id,game,payload,created_at",
+            "order": "created_at.desc",
+            "limit": str(max(1, min(limit, 10000))),
+        }
+    )
+    req = urllib.request.Request(
+        f"{supabase_url}/rest/v1/{table}?{params}",
+        headers={
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=4.0) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def safe_number(value, fallback: float = 0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return number if number == number else fallback
+
+
+def evidence_from_events(events: list[dict]) -> dict:
+    storage = storage_status()
+    tester_ids = set()
+    session_ids = set()
+    label_count = 0
+    helped_count = 0
+    false_alert_count = 0
+    signal_events = []
+    tilt_values = []
+    readiness_values = []
+    recovery_values = []
+    label_event_types = {"tester_feedback", "study_event", "site_visit"}
+
+    for row in events:
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        event_type = str(row.get("event_type") or payload.get("event_type") or "")
+        tester_id = str(row.get("tester_id") or payload.get("tester_id") or "").strip()
+        if tester_id:
+            tester_ids.add(tester_id)
+        session_id = str(row.get("session_id") or payload.get("session_id") or "").strip()
+        if session_id:
+            session_ids.add(session_id)
+        if event_type in label_event_types:
+            label_count += 1
+            label = str(payload.get("kind") or payload.get("label") or payload.get("event") or "").lower()
+            if "help" in label:
+                helped_count += 1
+            if "false" in label:
+                false_alert_count += 1
+        if event_type == "public_signal":
+            signal_events.append(row)
+            tilt_values.append(safe_number(payload.get("tilt_risk")))
+            readiness_values.append(safe_number(payload.get("readiness")))
+            recovery_values.append(safe_number(payload.get("recovery")))
+
+    latest_signals = list(reversed(signal_events[:12]))
+    timeline_points = []
+    for index, row in enumerate(latest_signals):
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        timeline_points.append(
+            {
+                "t": index * 8,
+                "tilt_risk": round(safe_number(payload.get("tilt_risk"))),
+                "readiness": round(safe_number(payload.get("readiness"))),
+                "recovery": round(safe_number(payload.get("recovery"))),
+            }
+        )
+
+    sample_count = len(signal_events)
+    latest_payload = signal_events[0].get("payload", {}) if signal_events and isinstance(signal_events[0].get("payload"), dict) else {}
+    tilt_max = round(max(tilt_values) if tilt_values else safe_number(latest_payload.get("tilt_risk")))
+    tilt_latest = round(safe_number(latest_payload.get("tilt_risk")))
+    avg_readiness = round(sum(readiness_values) / len(readiness_values), 1) if readiness_values else None
+    help_rate = round((helped_count / label_count) * 100, 1) if label_count else None
+    false_alert_rate = round((false_alert_count / label_count) * 100, 1) if label_count else None
+    return {
+        "ok": True,
+        "mode": "public_site",
+        "public_demo_mode": False,
+        "summary": "Hosted beta is connected to Supabase. Evidence is calculated from stored derived events.",
+        "privacy": "Raw video/audio/frames are never uploaded or stored.",
+        "hosted_storage": storage,
+        "public_session": {
+            "samples": sample_count,
+            "sessions": len(session_ids),
+            "tilt_max": tilt_max,
+            "tilt_latest": tilt_latest,
+            "recovery_delta": max(0, tilt_max - tilt_latest),
+            "avg_readiness": avg_readiness,
+            "proof": {
+                "headline": f"{sample_count} derived samples stored" if sample_count else "Collecting proof",
+                "details": "Evidence is based on derived browser CV signals only. No raw media is stored.",
+            },
+        },
+        "investor_metrics": {
+            "body_state_samples": sample_count,
+            "embedding_vectors": 0,
+            "feedback_labels": label_count,
+            "sessions": len(session_ids),
+            "stored_events": len(events),
+        },
+        "cohort": {
+            "total_alerts_labelled": label_count,
+            "unique_testers": len(tester_ids),
+            "tester_target": 100,
+            "labels_target": 150,
+            "help_rate_percent": help_rate,
+            "false_alert_rate_percent": false_alert_rate,
+        },
+        "cloud_coach": {
+            "provider": "groq" if env_value("GROQ_API_KEY") else "gemini" if env_value("GEMINI_API_KEY") else "fallback",
+            "model": env_value("GROQ_MODEL", "llama-3.1-8b-instant") if env_value("GROQ_API_KEY") else env_value("GEMINI_MODEL", "gemini-2.5-flash") if env_value("GEMINI_API_KEY") else "local templates",
+            "status": "ready" if env_value("GROQ_API_KEY") or env_value("GEMINI_API_KEY") else "fallback",
+            "latency_ms": None,
+        },
+        "public_timeline": {"points": timeline_points},
+        "next_milestone": {"tester_target": 100, "labels_target": 150},
+    }
+
+
+def public_evidence() -> dict:
+    events = fetch_supabase_events()
+    if events:
+        return evidence_from_events(events)
+    storage = storage_status()
+    return {
+        "ok": True,
+        "mode": "public_demo",
+        "public_demo_mode": not storage["configured"],
+        "summary": "Public hosted demo is online. Live camera analysis runs locally in the browser.",
+        "privacy": "Raw video is not uploaded or stored.",
+        "hosted_storage": storage,
+        "investor_metrics": {"body_state_samples": 0, "embedding_vectors": 0, "feedback_labels": 0, "stored_events": 0},
+        "cohort": {
+            "total_alerts_labelled": 0,
+            "unique_testers": 0,
+            "tester_target": 100,
+            "labels_target": 150,
+            "help_rate_percent": None,
+            "false_alert_rate_percent": None,
+        },
+        "public_timeline": {"points": []},
+        "cloud_coach": {
+            "provider": "groq" if env_value("GROQ_API_KEY") else "gemini" if env_value("GEMINI_API_KEY") else "fallback",
+            "model": env_value("GROQ_MODEL", "llama-3.1-8b-instant") if env_value("GROQ_API_KEY") else env_value("GEMINI_MODEL", "gemini-2.5-flash") if env_value("GEMINI_API_KEY") else "local templates",
+            "status": "ready" if env_value("GROQ_API_KEY") or env_value("GEMINI_API_KEY") else "fallback",
+            "latency_ms": None,
+        },
+    }
+
+
 class TimewebHandler(BaseHTTPRequestHandler):
     server_version = "KinaestheticTimeweb/1.0"
 
     def log_message(self, fmt: str, *args) -> None:
         print("%s - %s" % (self.address_string(), fmt % args), flush=True)
 
-    def _send_bytes(self, status: int, body: bytes, content_type: str) -> None:
+    def _send_bytes(self, status: int, body: bytes, content_type: str, extra_headers=None) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         self.send_header("Permissions-Policy", "camera=(self), microphone=()")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
     def _send_json(self, payload: dict, status: int = 200) -> None:
         self._send_bytes(status, json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
 
-    def _send_file(self, path: Path) -> None:
+    def _send_file(self, path: Path, extra_headers=None) -> None:
         if not path.exists() or not path.is_file():
             self._send_json({"ok": False, "error": "not_found"}, 404)
             return
         content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
-        self._send_bytes(200, path.read_bytes(), content_type)
+        self._send_bytes(200, path.read_bytes(), content_type, extra_headers=extra_headers)
+
+    def _visitor_id(self) -> tuple[str, bool]:
+        cookies = self.headers.get("Cookie", "")
+        for chunk in cookies.split(";"):
+            name, _, value = chunk.strip().partition("=")
+            if name == VISITOR_COOKIE and value and len(value) <= 80:
+                return value, False
+        return f"visitor-{uuid.uuid4().hex[:16]}", True
+
+    def _track_page_visit(self, path: str) -> dict:
+        visitor_id, is_new_cookie = self._visitor_id()
+        visit_id = f"visit-{int(time.time() * 1000)}-{uuid.uuid4().hex[:8]}"
+        mirror_to_supabase(
+            "site_visit",
+            {
+                "session_id": visit_id,
+                "tester_id": visit_id,
+                "visitor_id": visitor_id,
+                "path": path,
+                "source": "site_visit",
+                "mode": "public_site",
+                "label": "site_visit",
+                "timestamp": utc_now_iso(),
+                "raw_media_stored": False,
+            },
+            headers=self.headers,
+        )
+        if not is_new_cookie:
+            return {}
+        return {"Set-Cookie": f"{VISITOR_COOKIE}={visitor_id}; Max-Age=31536000; Path=/; Secure; HttpOnly; SameSite=Lax"}
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -253,14 +457,7 @@ class TimewebHandler(BaseHTTPRequestHandler):
             return
 
         if path in {"/api/evidence", "/api/report", "/api/investor-metrics", "/api/cohort-summary"}:
-            self._send_json(
-                {
-                    "ok": True,
-                    "mode": "public_demo",
-                    "summary": "Public hosted demo is online. Live camera analysis runs locally in the browser.",
-                    "privacy": "Raw video is not uploaded or stored.",
-                }
-            )
+            self._send_json(public_evidence())
             return
 
         if path == "/api/export-founder-deck":
@@ -273,7 +470,7 @@ class TimewebHandler(BaseHTTPRequestHandler):
 
         route_file = ROUTES.get(path)
         if route_file:
-            self._send_file(SITE_ROOT / route_file)
+            self._send_file(SITE_ROOT / route_file, extra_headers=self._track_page_visit(path))
             return
 
         candidate = (SITE_ROOT / path.lstrip("/")).resolve()
