@@ -14,10 +14,155 @@ let mainWindow = null;
 let overlayWindow = null;
 let engineProcess = null;
 let engineStartedAt = null;
+let bootStatus = "Starting Kinaesthetic AI...";
+
+function copyFileIfExists(source, target) {
+  if (!fs.existsSync(source)) {
+    return;
+  }
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.copyFileSync(source, target);
+}
+
+function copyDirRecursive(source, target) {
+  if (!fs.existsSync(source)) {
+    return;
+  }
+  fs.mkdirSync(target, { recursive: true });
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = path.join(source, entry.name);
+    const targetPath = path.join(target, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(sourcePath, targetPath);
+    } else if (entry.isFile()) {
+      copyFileIfExists(sourcePath, targetPath);
+    }
+  }
+}
+
+function preparePackagedRuntime() {
+  if (!app.isPackaged) {
+    return;
+  }
+  const source = path.join(process.resourcesPath, "kai-runtime");
+  const target = path.join(app.getPath("userData"), "runtime");
+  if (!fs.existsSync(source)) {
+    throw new Error(`Packaged runtime is missing: ${source}`);
+  }
+
+  const markerPath = path.join(target, ".kai-runtime-version");
+  const currentVersion = app.getVersion();
+  const existingVersion = fs.existsSync(markerPath) ? fs.readFileSync(markerPath, "utf8").trim() : "";
+  if (existingVersion === currentVersion && fs.existsSync(path.join(target, "site_server.py"))) {
+    return;
+  }
+
+  fs.mkdirSync(target, { recursive: true });
+  for (const file of [
+    "app.py",
+    "alerts.py",
+    "atomic_io.py",
+    "coach_providers.py",
+    "cv_engine.py",
+    "engine_status.py",
+    "force_utf8.py",
+    "gemini_coach.py",
+    "groq_coach.py",
+    "product_intelligence.py",
+    "scoring.py",
+    "security.py",
+    "site_server.py",
+    "tts_phrases.py",
+    "requirements-local.txt",
+    ".env.example"
+  ]) {
+    copyFileIfExists(path.join(source, file), path.join(target, file));
+  }
+  copyDirRecursive(path.join(source, "pitch_site"), path.join(target, "pitch_site"));
+  copyDirRecursive(path.join(source, "models"), path.join(target, "models"));
+  fs.mkdirSync(path.join(target, "data"), { recursive: true });
+  fs.writeFileSync(markerPath, currentVersion, "utf8");
+}
+
+function logsDir(root) {
+  const dir = path.join(root, "logs");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function logLine(message) {
+  const root = projectRoot();
+  const line = `[${new Date().toISOString()}] ${message}\n`;
+  try {
+    fs.appendFileSync(path.join(logsDir(root), "desktop-electron.log"), line, "utf8");
+  } catch {
+    // Logging must never block app startup.
+  }
+}
+
+function bootHtml(status, detail = "") {
+  const safeStatus = String(status).replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
+  const safeDetail = String(detail).replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Kinaesthetic AI</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 0%, #0d241c, #040706 56%);
+      color: #f5f7f5;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(720px, calc(100vw - 48px));
+      border: 1px solid rgba(51, 238, 153, .28);
+      border-radius: 18px;
+      padding: 34px;
+      background: rgba(16, 19, 18, .84);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
+    }
+    .brand { color: #33ee99; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+    h1 { margin: 14px 0 12px; font-size: 42px; line-height: 1.02; }
+    p { margin: 0; color: #aeb8c1; font-size: 18px; line-height: 1.5; }
+    .bar { height: 8px; margin-top: 28px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.12); }
+    .bar::before { content: ""; display: block; width: 42%; height: 100%; border-radius: inherit; background: #33ee99; animation: pulse 1.2s ease-in-out infinite alternate; }
+    .detail { margin-top: 18px; font-size: 13px; color: #789; white-space: pre-wrap; }
+    @keyframes pulse { from { transform: translateX(-20%); } to { transform: translateX(160%); } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">Kinaesthetic AI Desktop Beta</div>
+    <h1>${safeStatus}</h1>
+    <p>Starting the local coach engine, camera surface, and game overlay.</p>
+    <div class="bar"></div>
+    <div class="detail">${safeDetail}</div>
+  </main>
+</body>
+</html>`;
+}
+
+async function showBoot(status, detail = "") {
+  bootStatus = status;
+  logLine(`${status}${detail ? ` - ${detail}` : ""}`);
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  const html = bootHtml(status, detail);
+  await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+}
 
 function projectRoot() {
   if (process.env.KAI_PROJECT_ROOT) {
     return process.env.KAI_PROJECT_ROOT;
+  }
+  if (app.isPackaged) {
+    return path.join(app.getPath("userData"), "runtime");
   }
   return path.resolve(__dirname, "..", "..");
 }
@@ -28,6 +173,94 @@ function pythonCommand(root) {
     return venvPython;
   }
   return process.env.PYTHON || "python";
+}
+
+function runCommand(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      ...options,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      reject(new Error(`${command} ${args.join(" ")} failed with code ${code}\n${stderr || stdout}`));
+    });
+  });
+}
+
+async function createVenv(root) {
+  const venvDir = path.join(root, ".venv");
+  if (fs.existsSync(path.join(venvDir, "Scripts", "python.exe"))) {
+    return;
+  }
+  const candidates = [
+    { command: process.env.PYTHON, args: ["-m", "venv", ".venv"] },
+    { command: "py", args: ["-3", "-m", "venv", ".venv"] },
+    { command: "python", args: ["-m", "venv", ".venv"] },
+    { command: "python3", args: ["-m", "venv", ".venv"] }
+  ].filter((item) => item.command);
+
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      await runCommand(candidate.command, candidate.args, { cwd: root });
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Python was not found. Install Python 3.11+ and try again.");
+}
+
+async function ensureLocalRuntime(root) {
+  preparePackagedRuntime();
+  const requirementsPath = path.join(root, "requirements-local.txt");
+  if (!fs.existsSync(requirementsPath)) {
+    throw new Error(`Missing requirements-local.txt at ${requirementsPath}`);
+  }
+
+  await showBoot("Checking Python runtime", root);
+  await createVenv(root);
+
+  const python = pythonCommand(root);
+  const markerPath = path.join(root, ".venv", ".kai-desktop-deps.json");
+  const requirementsStat = fs.statSync(requirementsPath);
+  let needsInstall = true;
+  if (fs.existsSync(markerPath)) {
+    try {
+      const marker = JSON.parse(fs.readFileSync(markerPath, "utf8"));
+      needsInstall = marker.requirements_mtime_ms !== requirementsStat.mtimeMs;
+    } catch {
+      needsInstall = true;
+    }
+  }
+
+  if (!needsInstall) {
+    await showBoot("Desktop runtime ready", "Python dependencies are already installed.");
+    return;
+  }
+
+  await showBoot("Installing local CV dependencies", "This can take a few minutes on first launch.");
+  await runCommand(python, ["-m", "pip", "install", "--upgrade", "pip", "--disable-pip-version-check"], { cwd: root });
+  await runCommand(python, ["-m", "pip", "install", "-r", requirementsPath, "--disable-pip-version-check"], { cwd: root });
+  fs.writeFileSync(
+    markerPath,
+    JSON.stringify({ requirements_mtime_ms: requirementsStat.mtimeMs, installed_at: new Date().toISOString() }, null, 2),
+    "utf8"
+  );
 }
 
 function waitForHttp(url, timeoutMs = 30000) {
@@ -86,6 +319,7 @@ function startEngine() {
   });
 
   engineProcess.on("exit", () => {
+    logLine("Local engine exited.");
     engineProcess = null;
   });
 }
@@ -183,6 +417,7 @@ function createMenu() {
 
 async function restartEngine() {
   stopEngine();
+  await ensureLocalRuntime(projectRoot());
   startEngine();
   await waitForHttp(`${APP_URL}/health`);
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -221,17 +456,18 @@ app.whenReady().then(async () => {
   createMenu();
   installIpc();
   createMainWindow();
+  await showBoot(bootStatus);
 
   try {
+    await ensureLocalRuntime(projectRoot());
+    await showBoot("Starting local coach engine", `${APP_URL}/play`);
     startEngine();
     await waitForHttp(`${APP_URL}/health`);
+    await showBoot("Opening player mode", "Camera permission is requested only after Start camera.");
     await mainWindow.loadURL(PLAY_URL);
     createOverlayWindow();
   } catch (error) {
-    const message = encodeURIComponent(
-      `Local engine failed to start. Check Python/.venv and requirements-local.txt.\n\n${error.message}`
-    );
-    await mainWindow.loadURL(`data:text/html;charset=utf-8,<pre style="font:16px sans-serif;white-space:pre-wrap;padding:32px">${message}</pre>`);
+    await showBoot("Local engine failed to start", error.message);
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

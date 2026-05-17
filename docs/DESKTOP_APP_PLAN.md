@@ -41,6 +41,9 @@ Rewriting into native UI before packaging would risk camera permission bugs and 
 
 ## Recommended user-facing launchers
 
+- `Start-Desktop-App.bat`
+  Desktop beta shell. Opens the app window and the always-on-top overlay.
+
 - `Start-Game-Overlay.bat`  
   Best for players and recordings. Opens `/play` and the tiny overlay.
 
@@ -73,6 +76,36 @@ Send the zip to testers. They unzip it and run:
 ```text
 Start-Game-Overlay.bat
 ```
+
+## Run Electron desktop beta
+
+From the project root:
+
+```powershell
+.\Start-Desktop-App.ps1
+```
+
+First launch checks Node, installs the desktop shell dependencies, then Electron
+checks/creates `.venv`, installs `requirements-local.txt`, starts
+`site_server.py`, opens `/play`, and opens the topmost overlay.
+
+## Build desktop installer
+
+From the project root:
+
+```powershell
+.\Build-Desktop-Installer.ps1
+```
+
+Output:
+
+```text
+dist\electron\
+```
+
+The current installer milestone is for internal beta packaging. The next step is
+packaging the Python engine as a sidecar executable so tester machines do not
+need a repository checkout.
 
 ## Privacy
 

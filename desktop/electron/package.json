@@ -2,6 +2,7 @@
   "name": "kinaesthetic-ai-desktop",
   "version": "0.1.0",
   "private": true,
+  "author": "Kinaesthetic AI",
   "description": "Kinaesthetic AI Windows desktop shell for the local browser-CV coach.",
   "main": "main.js",
   "scripts": {
@@ -26,7 +27,82 @@
       "package.json",
       "README.md"
     ],
+    "extraResources": [
+      {
+        "from": "../../app.py",
+        "to": "kai-runtime/app.py"
+      },
+      {
+        "from": "../../alerts.py",
+        "to": "kai-runtime/alerts.py"
+      },
+      {
+        "from": "../../atomic_io.py",
+        "to": "kai-runtime/atomic_io.py"
+      },
+      {
+        "from": "../../coach_providers.py",
+        "to": "kai-runtime/coach_providers.py"
+      },
+      {
+        "from": "../../cv_engine.py",
+        "to": "kai-runtime/cv_engine.py"
+      },
+      {
+        "from": "../../engine_status.py",
+        "to": "kai-runtime/engine_status.py"
+      },
+      {
+        "from": "../../force_utf8.py",
+        "to": "kai-runtime/force_utf8.py"
+      },
+      {
+        "from": "../../gemini_coach.py",
+        "to": "kai-runtime/gemini_coach.py"
+      },
+      {
+        "from": "../../groq_coach.py",
+        "to": "kai-runtime/groq_coach.py"
+      },
+      {
+        "from": "../../product_intelligence.py",
+        "to": "kai-runtime/product_intelligence.py"
+      },
+      {
+        "from": "../../scoring.py",
+        "to": "kai-runtime/scoring.py"
+      },
+      {
+        "from": "../../security.py",
+        "to": "kai-runtime/security.py"
+      },
+      {
+        "from": "../../site_server.py",
+        "to": "kai-runtime/site_server.py"
+      },
+      {
+        "from": "../../tts_phrases.py",
+        "to": "kai-runtime/tts_phrases.py"
+      },
+      {
+        "from": "../../requirements-local.txt",
+        "to": "kai-runtime/requirements-local.txt"
+      },
+      {
+        "from": "../../.env.example",
+        "to": "kai-runtime/.env.example"
+      },
+      {
+        "from": "../../pitch_site",
+        "to": "kai-runtime/pitch_site"
+      },
+      {
+        "from": "../../models",
+        "to": "kai-runtime/models"
+      }
+    ],
     "win": {
+      "signAndEditExecutable": false,
       "target": [
         "nsis"
       ],

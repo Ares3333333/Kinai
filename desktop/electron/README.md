@@ -39,6 +39,8 @@ npm run dev
 - Local URL: `http://127.0.0.1:8765/play?desktop=1`
 - Overlay URL: `http://127.0.0.1:8765/overlay?window=1&voice=1&desktop=1`
 - Raw video/audio/frames are still not stored.
+- Packaged builds copy `resources/kai-runtime` into Electron `userData/runtime`
+  so `.venv`, logs, and derived data live in a writable Windows app folder.
 
 ## Beta milestones
 
