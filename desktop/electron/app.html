@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kinaesthetic AI Desktop</title>
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <div class="desktop-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <strong>Kinaesthetic AI</strong>
+        </div>
+        <nav class="nav" aria-label="Desktop modules">
+          <button class="nav-item active" data-view="player"><span>Player</span><small>Live coaching</small></button>
+          <button class="nav-item" data-view="streamer"><span>Streamer</span><small>Broadcast tools</small></button>
+          <button class="nav-item" data-view="teams"><span>Teams</span><small>Esports orgs</small></button>
+          <button class="nav-item" data-view="coach"><span>Coach</span><small>Team command</small></button>
+          <button class="nav-item" data-view="workforce"><span>Workforce</span><small>Digital employees</small></button>
+          <button class="nav-item" data-view="evidence"><span>Evidence</span><small>Signals & proof</small></button>
+          <button class="nav-item" data-view="settings"><span>Settings</span><small>System & privacy</small></button>
+        </nav>
+        <div class="privacy-card">
+          <strong>Privacy first</strong>
+          <span>Local camera</span>
+          <span>No raw video</span>
+          <span>Signals only</span>
+        </div>
+      </aside>
+
+      <main class="app-main">
+        <header class="topbar">
+          <div class="status-pill"><i></i><span id="sessionStatus">Session: ready</span></div>
+          <div class="status-pill"><i></i><span id="engineStatus">Engine: starting</span></div>
+          <div class="status-pill"><i></i><span>Camera: local</span></div>
+          <div class="status-pill"><i></i><span>Voice: on</span></div>
+          <div class="top-actions">
+            <button id="openPlayerBtn">Open live camera</button>
+            <button id="openOverlayBtn">Open overlay</button>
+          </div>
+        </header>
+
+        <section class="view active" id="view-player">
+          <div class="hero-grid">
+            <article class="live-panel">
+              <div class="panel-head"><span>Live player module</span><b>Local CV</b></div>
+              <div class="scan-preview">
+                <div class="scan-person">
+                  <span class="face"></span>
+                  <span class="shoulders"></span>
+                  <span class="mesh mesh-a"></span>
+                  <span class="mesh mesh-b"></span>
+                </div>
+                <div class="scan-label left">Face 92%</div>
+                <div class="scan-label right">Pose 88%</div>
+              </div>
+              <div class="chip-row">
+                <span>CV: browser</span>
+                <span>Baseline: personal</span>
+                <span>Auto-save: signals</span>
+                <span>No raw video</span>
+              </div>
+            </article>
+
+            <article class="metric-panel">
+              <div class="metric primary"><span>Tilt risk</span><strong>67%</strong><em>watch</em></div>
+              <div class="metric-row">
+                <div class="metric"><span>Readiness</span><strong>85%</strong><em>ready</em></div>
+                <div class="metric"><span>Recovery</span><strong>68%</strong><em>recovering</em></div>
+              </div>
+              <div class="proof-card">
+                <span>Recovery proof</span>
+                <strong>Tilt 99 -> 67</strong>
+                <p>Samples, recovery delta and dominant lock are saved as derived metadata.</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="lower-grid">
+            <article class="coach-panel">
+              <span>Coach command</span>
+              <strong>Eyes soft. Jaw loose. Stay in control.</strong>
+              <p>Short performance cues. No medical diagnosis. Critical prompts work locally.</p>
+              <div class="command-row">
+                <button>Reset posture</button>
+                <button>Relax jaw</button>
+                <button>Lower shoulders</button>
+                <button>Focus forward</button>
+              </div>
+            </article>
+            <article class="timeline-panel">
+              <span>Signal timeline</span>
+              <div class="chart-lines"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-streamer">
+          <div class="section-grid">
+            <article class="feature-card strong"><span>Streamer mode</span><strong>Overlay that stays readable on stream.</strong><p>Small topmost HUD, voice prompts, OBS-safe layout and privacy-first labels.</p><button data-action="overlay">Open streamer overlay</button></article>
+            <article class="feature-card"><span>Audience safe</span><strong>No raw camera upload.</strong><p>Show proof and recovery without exposing private video data.</p></article>
+            <article class="feature-card"><span>Recording</span><strong>Game capture workflow.</strong><p>Use the overlay during ranked sessions, clips and validation recordings.</p></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-teams">
+          <div class="section-grid">
+            <article class="feature-card strong"><span>Esports teams</span><strong>Roster readiness without medical claims.</strong><p>Track derived body-state signals, labels and recovery proof per session.</p></article>
+            <article class="feature-card"><span>Scrims</span><strong>Compare pressure patterns.</strong><p>Review when tilt rises, which command helped, and how quickly players recover.</p></article>
+            <article class="feature-card"><span>Validation</span><strong>Build the dataset.</strong><p>Collect tester labels from real sessions: felt tilt, helped, false alert.</p></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-coach">
+          <div class="section-grid">
+            <article class="feature-card strong"><span>Team coaches</span><strong>A command center for recovery behavior.</strong><p>Evidence, session reports, player-safe coaching language and export packages.</p><button data-route="/evidence">Open evidence</button></article>
+            <article class="feature-card"><span>Coach memory</span><strong>What helped, what did not.</strong><p>Derived events can teach the system which commands work for each player.</p></article>
+            <article class="feature-card"><span>Review</span><strong>Signal -> alert -> recovery.</strong><p>Use the proof package for founders, coaches and early partners.</p></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-workforce">
+          <div class="section-grid">
+            <article class="feature-card strong"><span>Digital employees</span><strong>Body-state AI beyond games.</strong><p>The same local signal stack can support focus, fatigue and recovery workflows for computer-based work.</p></article>
+            <article class="feature-card"><span>Privacy</span><strong>Signals, not surveillance.</strong><p>Derived state and labels only. No raw media storage.</p></article>
+            <article class="feature-card"><span>Future wedge</span><strong>Performance coaching category.</strong><p>Gaming first, broader computer-performance workflows next.</p></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-evidence">
+          <div class="section-grid">
+            <article class="feature-card strong"><span>Evidence</span><strong>Investor proof and validation data.</strong><p>Open reports, metrics and recovery proof from the local engine.</p><button data-route="/evidence">Open evidence page</button></article>
+            <article class="feature-card"><span>Metrics</span><strong>Labels, testers, proof.</strong><p>Track beta progress without storing raw video or audio.</p><button data-route="/metrics">Open metrics</button></article>
+            <article class="feature-card"><span>Demo</span><strong>90-second story.</strong><p>Scripted flow for signal, alert, recovery and privacy.</p><button data-route="/demo">Open demo</button></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-settings">
+          <div class="settings-grid">
+            <article class="feature-card strong"><span>System</span><strong id="settingsEngine">Local engine starting.</strong><p>Restart if camera or overlay gets stuck.</p><button id="restartEngineBtn">Restart engine</button></article>
+            <article class="feature-card"><span>Camera check</span><strong>Permissions and HTTPS/local state.</strong><p>Run diagnostics before giving the build to testers.</p><button data-route="/camera-check">Open camera check</button></article>
+            <article class="feature-card"><span>Storage</span><strong>Signals and labels only.</strong><p>Cloud sync is optional. Raw media never belongs in storage.</p></article>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

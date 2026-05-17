@@ -12,6 +12,7 @@ const OVERLAY_URL = `${APP_URL}/overlay?window=1&voice=1&desktop=1`;
 
 let mainWindow = null;
 let overlayWindow = null;
+let playerWindow = null;
 let engineProcess = null;
 let engineStartedAt = null;
 let bootStatus = "Starting Kinaesthetic AI...";
@@ -387,12 +388,40 @@ function createOverlayWindow() {
   return overlayWindow;
 }
 
+function createPlayerWindow() {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.show();
+    playerWindow.focus();
+    return playerWindow;
+  }
+
+  playerWindow = new BrowserWindow({
+    width: 1380,
+    height: 920,
+    minWidth: 1120,
+    minHeight: 760,
+    backgroundColor: "#050806",
+    title: "Kinaesthetic AI - Live Player",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  playerWindow.loadURL(PLAY_URL);
+  playerWindow.on("closed", () => {
+    playerWindow = null;
+  });
+  return playerWindow;
+}
+
 function createMenu() {
   const template = [
     {
       label: "Kinaesthetic AI",
       submenu: [
-        { label: "Open player mode", click: () => mainWindow?.loadURL(PLAY_URL) },
+        { label: "Open player mode", click: () => createPlayerWindow() },
         { label: "Open overlay", click: () => createOverlayWindow() },
         { label: "Restart local engine", click: async () => restartEngine() },
         { type: "separator" },
@@ -421,21 +450,56 @@ async function restartEngine() {
   startEngine();
   await waitForHttp(`${APP_URL}/health`);
   if (mainWindow && !mainWindow.isDestroyed()) {
-    await mainWindow.loadURL(PLAY_URL);
+    await mainWindow.loadFile(path.join(__dirname, "app.html"));
   }
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     await overlayWindow.loadURL(OVERLAY_URL);
+  }
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    await playerWindow.loadURL(PLAY_URL);
   }
   return { ok: true };
 }
 
 function installIpc() {
+  ipcMain.handle("desktop:urls", () => ({
+    app: APP_URL,
+    play: PLAY_URL,
+    overlay: OVERLAY_URL,
+    demo: `${APP_URL}/demo`,
+    evidence: `${APP_URL}/evidence`,
+    metrics: `${APP_URL}/metrics`,
+    cameraCheck: `${APP_URL}/camera-check`
+  }));
   ipcMain.handle("overlay:open", () => {
     createOverlayWindow();
     return { ok: true };
   });
   ipcMain.handle("overlay:close", () => {
     overlayWindow?.close();
+    return { ok: true };
+  });
+  ipcMain.handle("player:open", () => {
+    createPlayerWindow();
+    return { ok: true };
+  });
+  ipcMain.handle("route:open", (_event, route) => {
+    const safeRoute = String(route || "/").startsWith("/") ? String(route || "/") : "/";
+    const url = `${APP_URL}${safeRoute}`;
+    const win = new BrowserWindow({
+      width: 1180,
+      height: 820,
+      minWidth: 960,
+      minHeight: 680,
+      backgroundColor: "#050806",
+      title: `Kinaesthetic AI ${safeRoute}`,
+      webPreferences: {
+        preload: path.join(__dirname, "preload.js"),
+        contextIsolation: true,
+        nodeIntegration: false
+      }
+    });
+    win.loadURL(url);
     return { ok: true };
   });
   ipcMain.handle("engine:restart", restartEngine);
@@ -463,8 +527,8 @@ app.whenReady().then(async () => {
     await showBoot("Starting local coach engine", `${APP_URL}/play`);
     startEngine();
     await waitForHttp(`${APP_URL}/health`);
-    await showBoot("Opening player mode", "Camera permission is requested only after Start camera.");
-    await mainWindow.loadURL(PLAY_URL);
+    await showBoot("Opening desktop command center", "Live camera opens from the Player module.");
+    await mainWindow.loadFile(path.join(__dirname, "app.html"));
     createOverlayWindow();
   } catch (error) {
     await showBoot("Local engine failed to start", error.message);

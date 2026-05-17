@@ -22,6 +22,9 @@
       "output": "../../dist/electron"
     },
     "files": [
+      "app.html",
+      "app.css",
+      "app.js",
       "main.js",
       "preload.js",
       "package.json",
