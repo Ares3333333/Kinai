@@ -12,16 +12,21 @@ The best path is staged:
    - first launch creates `.venv`, installs `requirements-local.txt`, starts the local server, opens `/play`, and opens the tiny overlay;
    - raw video/audio/frames stay local.
 
-2. **Next: signed installer**
-   - same runtime, but packaged with an installer;
+2. **Now starting: Electron desktop shell**
+   - one polished app window for `/play`;
+   - one small always-on-top overlay window for gameplay;
+   - local Python `site_server.py` runs as the desktop engine;
+   - camera and voice stay in Chromium, close to the already-working browser path.
+
+3. **Next: signed installer**
+   - package the Python engine as a sidecar executable;
    - Start Menu/Desktop shortcuts;
-   - clearer first-run camera and voice setup;
+   - first-run camera, voice, and overlay setup;
    - optional auto-update later.
 
-3. **Later: native shell**
-   - Tauri or Electron wrapper if we need a single polished window/tray app;
-   - keep the Python/CV engine local;
-   - avoid breaking browser camera reliability too early.
+4. **Later: Tauri evaluation**
+   - revisit Tauri when beta behavior is stable;
+   - use it only if smaller binary size matters more than Chromium camera reliability.
 
 ## Why not rewrite now
 
@@ -81,6 +86,8 @@ The desktop app must preserve the same product truth:
 ## Next engineering tasks
 
 1. Add a first-run screen/checklist for Python, camera, microphone/voice, and overlay.
-2. Make a branded icon and desktop shortcut installer.
-3. Add a single `Kinaesthetic AI.exe` launcher wrapper.
-4. Add auto-update only after the validation beta stabilizes.
+2. Stabilize the Electron shell in `desktop/electron`.
+3. Package Python into a sidecar executable.
+4. Make a branded icon and desktop shortcut installer.
+5. Add a single `Kinaesthetic AI.exe` launcher wrapper.
+6. Add auto-update only after the validation beta stabilizes.

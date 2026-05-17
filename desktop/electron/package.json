@@ -1,0 +1,44 @@
+{
+  "name": "kinaesthetic-ai-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kinaesthetic AI Windows desktop shell for the local browser-CV coach.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^42.1.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.sharprod.kinaestheticai",
+    "productName": "Kinaesthetic AI",
+    "directories": {
+      "output": "../../dist/electron"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "README.md"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "KinaestheticAI-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kinaesthetic AI"
+    }
+  }
+}
