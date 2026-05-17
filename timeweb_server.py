@@ -208,6 +208,52 @@ def fetch_supabase_events(limit: int = 5000) -> list[dict]:
         return []
 
 
+def fetch_supabase_count(event_type: str | None = None) -> int:
+    status = storage_status()
+    if not status["configured"]:
+        return 0
+    supabase_url = env_value("SUPABASE_URL").rstrip("/")
+    supabase_key = env_value("SUPABASE_SERVICE_ROLE_KEY")
+    table = env_value("SUPABASE_EVENTS_TABLE", "kinaesthetic_events")
+    query = {"select": "event_type"}
+    if event_type:
+        query["event_type"] = f"eq.{event_type}"
+    req = urllib.request.Request(
+        f"{supabase_url}/rest/v1/{table}?{urlencode(query)}",
+        headers={
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Prefer": "count=exact",
+            "Range": "0-0",
+        },
+        method="HEAD",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=4.0) as response:
+            content_range = response.headers.get("Content-Range", "")
+    except Exception:
+        return 0
+    if "/" not in content_range:
+        return 0
+    total = content_range.rsplit("/", 1)[-1]
+    return int(total) if total.isdigit() else 0
+
+
+def fetch_supabase_counts() -> dict[str, int]:
+    site_visit = fetch_supabase_count("site_visit")
+    study_event = fetch_supabase_count("study_event")
+    tester_feedback = fetch_supabase_count("tester_feedback")
+    return {
+        "stored_events": fetch_supabase_count(),
+        "site_visit": site_visit,
+        "study_event": study_event,
+        "tester_feedback": tester_feedback,
+        "labels": site_visit + study_event + tester_feedback,
+        "public_signal": fetch_supabase_count("public_signal"),
+        "public_session": fetch_supabase_count("public_session"),
+    }
+
+
 def safe_number(value, fallback: float = 0) -> float:
     try:
         number = float(value)
@@ -216,7 +262,8 @@ def safe_number(value, fallback: float = 0) -> float:
     return number if number == number else fallback
 
 
-def evidence_from_events(events: list[dict]) -> dict:
+def evidence_from_events(events: list[dict], counts: dict[str, int] | None = None) -> dict:
+    counts = counts or {}
     storage = storage_status()
     tester_ids = set()
     session_ids = set()
@@ -264,7 +311,11 @@ def evidence_from_events(events: list[dict]) -> dict:
             }
         )
 
-    sample_count = len(signal_events)
+    sample_count = counts.get("public_signal") or len(signal_events)
+    label_count = counts.get("labels") or label_count
+    tester_count = counts.get("site_visit") or len(tester_ids)
+    session_count = counts.get("public_session") or len(session_ids)
+    stored_event_count = counts.get("stored_events") or len(events)
     latest_payload = signal_events[0].get("payload", {}) if signal_events and isinstance(signal_events[0].get("payload"), dict) else {}
     tilt_max = round(max(tilt_values) if tilt_values else safe_number(latest_payload.get("tilt_risk")))
     tilt_latest = round(safe_number(latest_payload.get("tilt_risk")))
@@ -280,7 +331,7 @@ def evidence_from_events(events: list[dict]) -> dict:
         "hosted_storage": storage,
         "public_session": {
             "samples": sample_count,
-            "sessions": len(session_ids),
+            "sessions": session_count,
             "tilt_max": tilt_max,
             "tilt_latest": tilt_latest,
             "recovery_delta": max(0, tilt_max - tilt_latest),
@@ -294,12 +345,12 @@ def evidence_from_events(events: list[dict]) -> dict:
             "body_state_samples": sample_count,
             "embedding_vectors": 0,
             "feedback_labels": label_count,
-            "sessions": len(session_ids),
-            "stored_events": len(events),
+            "sessions": session_count,
+            "stored_events": stored_event_count,
         },
         "cohort": {
             "total_alerts_labelled": label_count,
-            "unique_testers": len(tester_ids),
+            "unique_testers": tester_count,
             "tester_target": 100,
             "labels_target": 150,
             "help_rate_percent": help_rate,
@@ -317,9 +368,10 @@ def evidence_from_events(events: list[dict]) -> dict:
 
 
 def public_evidence() -> dict:
-    events = fetch_supabase_events()
-    if events:
-        return evidence_from_events(events)
+    events = fetch_supabase_events(limit=250)
+    counts = fetch_supabase_counts()
+    if events or counts.get("stored_events"):
+        return evidence_from_events(events, counts)
     storage = storage_status()
     return {
         "ok": True,
