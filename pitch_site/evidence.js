@@ -153,11 +153,8 @@ function renderEvidence(evidence) {
   const timeline = latestEvidence.public_timeline || {};
   const storage = latestEvidence.hosted_storage || {};
   const isPublicDemo = Boolean(latestEvidence.public_demo_mode || latestHealth.public_demo_mode);
-  const labelTarget = Number(cohort.labels_target || latestEvidence.next_milestone?.labels_target || 150);
-  const testerTarget = Number(cohort.tester_target || latestEvidence.next_milestone?.tester_target || 100);
   const labelCount = Number(cohort.total_alerts_labelled ?? metrics.feedback_labels ?? 0);
   const testerCount = Number(cohort.unique_testers ?? 0);
-  const testerRemaining = Math.max(0, testerTarget - testerCount);
   const storageConfigured = Boolean(storage.configured);
 
   setText("evidenceStatus", isPublicDemo ? "public demo ready" : "ready");
@@ -171,17 +168,15 @@ function renderEvidence(evidence) {
   );
   setText("coachProvider", coach.provider || "fallback");
   setText("coachDetails", `${coach.model || "local templates"}; ${coach.status || "fallback"}; latency ${coach.latency_ms ?? "-"}ms`);
-  setText("labelCount", `${labelCount}/${labelTarget} labels`);
+  setText("labelCount", `${labelCount} labels`);
   setText(
     "labelDetails",
-    `Help-rate: ${pct(cohort.help_rate_percent)}. False alerts: ${pct(cohort.false_alert_rate_percent)}. Testers: ${testerCount}/${testerTarget}.`
+    `Help-rate: ${pct(cohort.help_rate_percent)}. False alerts: ${pct(cohort.false_alert_rate_percent)}. Testers: ${testerCount}.`
   );
-  setText("testerBaseCount", `${testerCount}/${testerTarget} testers`);
+  setText("testerBaseCount", `${testerCount} testers`);
   setText(
     "testerBaseDetails",
-    testerRemaining
-      ? `${testerRemaining} testers left to reach the first validation base. Sessions save derived samples, labels, and proof metadata only.`
-      : "First validation base reached. Continue collecting labels and recovery proof; raw media is never stored."
+    "Sessions save derived samples, labels, and proof metadata only. Raw media is never stored."
   );
   setText("autoSaveMode", storageConfigured ? `${storage.provider || "Supabase"} database` : "Local JSONL");
   setText(
