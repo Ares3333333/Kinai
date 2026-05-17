@@ -17,7 +17,10 @@ $VenvDir          = Join-Path $ProjectDir ".venv"
 $PythonExe        = Join-Path $VenvDir "Scripts\python.exe"
 $AppFile          = Join-Path $ProjectDir "app.py"
 $SiteServerFile   = Join-Path $ProjectDir "site_server.py"
-$RequirementsFile = Join-Path $ProjectDir "requirements.txt"
+$RequirementsFile = Join-Path $ProjectDir "requirements-local.txt"
+if (-not (Test-Path $RequirementsFile)) {
+    $RequirementsFile = Join-Path $ProjectDir "requirements.txt"
+}
 $StreamlitOutLog  = Join-Path $ProjectDir "streamlit.log"
 $StreamlitErrLog  = Join-Path $ProjectDir "streamlit.err.log"
 $SiteOutLog       = Join-Path $ProjectDir "site_server.log"
@@ -92,7 +95,7 @@ Write-Host "Ensuring dependencies are installed ..." -ForegroundColor DarkGray
 & $PythonExe -m pip install --upgrade pip --disable-pip-version-check --quiet
 & $PythonExe -m pip install -r $RequirementsFile --disable-pip-version-check --quiet
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "pip install failed. Check requirements.txt and your internet." -ForegroundColor Red
+    Write-Host "pip install failed. Check $RequirementsFile and your internet." -ForegroundColor Red
     Read-Host "Press Enter to exit"
     exit 1
 }

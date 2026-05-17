@@ -1,0 +1,12 @@
+# Local Windows desktop/cockpit runtime.
+# Used by Start-*.ps1 launchers for the downloadable PC app path.
+
+streamlit
+opencv-python
+mediapipe
+numpy
+pandas
+python-dotenv
+openai
+sounddevice
+pynput

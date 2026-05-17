@@ -19,7 +19,10 @@ $ProjectDir       = Split-Path -Parent $MyInvocation.MyCommand.Path
 $VenvDir          = Join-Path $ProjectDir ".venv"
 $PythonExe        = Join-Path $VenvDir "Scripts\python.exe"
 $SiteServerFile   = Join-Path $ProjectDir "site_server.py"
-$RequirementsFile = Join-Path $ProjectDir "requirements.txt"
+$RequirementsFile = Join-Path $ProjectDir "requirements-local.txt"
+if (-not (Test-Path $RequirementsFile)) {
+    $RequirementsFile = Join-Path $ProjectDir "requirements.txt"
+}
 $OutLog           = Join-Path $ProjectDir "site_server.log"
 $ErrLog           = Join-Path $ProjectDir "site_server.err.log"
 $LauncherLog      = Join-Path $ProjectDir "launcher-site.log"
@@ -99,7 +102,7 @@ if (-not (Test-Path $markerFile)) {
     & $PythonExe -m pip install --upgrade pip --disable-pip-version-check --quiet
     & $PythonExe -m pip install -r $RequirementsFile --disable-pip-version-check --quiet
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "pip install failed. Check requirements.txt." -ForegroundColor Red
+        Write-Host "pip install failed. Check $RequirementsFile." -ForegroundColor Red
         Read-Host "Press Enter to exit"
         exit 1
     }

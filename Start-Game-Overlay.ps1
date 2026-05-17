@@ -15,7 +15,10 @@ $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $VenvDir = Join-Path $ProjectDir ".venv"
 $PythonExe = Join-Path $VenvDir "Scripts\python.exe"
 $SiteServerFile = Join-Path $ProjectDir "site_server.py"
-$RequirementsFile = Join-Path $ProjectDir "requirements.txt"
+$RequirementsFile = Join-Path $ProjectDir "requirements-local.txt"
+if (-not (Test-Path $RequirementsFile)) {
+    $RequirementsFile = Join-Path $ProjectDir "requirements.txt"
+}
 $OutLog = Join-Path $ProjectDir "site_server.log"
 $ErrLog = Join-Path $ProjectDir "site_server.err.log"
 $LauncherLog = Join-Path $ProjectDir "game_overlay_launcher.log"
