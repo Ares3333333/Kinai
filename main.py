@@ -4,13 +4,15 @@ import json
 import mimetypes
 import os
 import time
+import uuid
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import BackgroundTasks, FastAPI, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 
 
@@ -18,6 +20,7 @@ APP_ROOT = Path(__file__).resolve().parent
 SITE_ROOT = APP_ROOT / "pitch_site"
 STARTED_AT = time.time()
 SESSION_SUMMARIES: dict[str, dict[str, Any]] = {}
+VISITOR_COOKIE = "kai_visitor_id"
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8080
@@ -245,6 +248,179 @@ def mirror_to_supabase(kind: str, record: dict[str, Any], headers: dict[str, str
         return {"mirrored": False, "provider": "supabase", "error": str(exc)[:300]}
 
 
+def fetch_supabase_events(limit: int = 5000) -> list[dict[str, Any]]:
+    status = storage_status()
+    if not status["configured"]:
+        return []
+    supabase_url = env_value("SUPABASE_URL").rstrip("/")
+    supabase_key = env_value("SUPABASE_SERVICE_ROLE_KEY")
+    table = env_value("SUPABASE_EVENTS_TABLE", "kinaesthetic_events")
+    params = urllib.parse.urlencode(
+        {
+            "select": "event_type,session_id,tester_id,game,payload,created_at",
+            "order": "created_at.desc",
+            "limit": str(max(1, min(limit, 10000))),
+        }
+    )
+    req = urllib.request.Request(
+        f"{supabase_url}/rest/v1/{table}?{params}",
+        headers={
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=4.0) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def safe_number(value: Any, fallback: float = 0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return number if number == number else fallback
+
+
+def evidence_from_events(events: list[dict[str, Any]]) -> dict[str, Any]:
+    storage = storage_status()
+    tester_ids: set[str] = set()
+    session_ids: set[str] = set()
+    label_count = 0
+    helped_count = 0
+    false_alert_count = 0
+    signal_events: list[dict[str, Any]] = []
+    tilt_values: list[float] = []
+    readiness_values: list[float] = []
+    recovery_values: list[float] = []
+
+    label_event_types = {"tester_feedback", "study_event", "site_visit"}
+    for row in events:
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        event_type = str(row.get("event_type") or payload.get("event_type") or "")
+        tester_id = str(row.get("tester_id") or payload.get("tester_id") or "").strip()
+        if tester_id:
+            tester_ids.add(tester_id)
+        session_id = str(row.get("session_id") or payload.get("session_id") or "").strip()
+        if session_id:
+            session_ids.add(session_id)
+        if event_type in label_event_types:
+            label_count += 1
+            label = str(payload.get("kind") or payload.get("label") or payload.get("event") or "").lower()
+            if "help" in label:
+                helped_count += 1
+            if "false" in label:
+                false_alert_count += 1
+        if event_type == "public_signal":
+            signal_events.append(row)
+            tilt_values.append(safe_number(payload.get("tilt_risk")))
+            readiness_values.append(safe_number(payload.get("readiness")))
+            recovery_values.append(safe_number(payload.get("recovery")))
+
+    latest_signals = list(reversed(signal_events[:12]))
+    timeline_points = []
+    for index, row in enumerate(latest_signals):
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        timeline_points.append(
+            {
+                "t": index * 8,
+                "tilt_risk": round(safe_number(payload.get("tilt_risk"))),
+                "readiness": round(safe_number(payload.get("readiness"))),
+                "recovery": round(safe_number(payload.get("recovery"))),
+            }
+        )
+
+    sample_count = len(signal_events)
+    latest_signal_payload = signal_events[0].get("payload", {}) if signal_events and isinstance(signal_events[0].get("payload"), dict) else {}
+    tilt_max = round(max(tilt_values) if tilt_values else safe_number(latest_signal_payload.get("tilt_risk")))
+    tilt_latest = round(safe_number(latest_signal_payload.get("tilt_risk")))
+    recovery_latest = round(safe_number(latest_signal_payload.get("recovery")))
+    avg_readiness = round(sum(readiness_values) / len(readiness_values), 1) if readiness_values else None
+    help_rate = round((helped_count / label_count) * 100, 1) if label_count else None
+    false_alert_rate = round((false_alert_count / label_count) * 100, 1) if label_count else None
+
+    return {
+        "ok": True,
+        "mode": "public_site",
+        "public_demo_mode": False,
+        "summary": "Hosted beta is connected to Supabase. Evidence is calculated from stored derived events.",
+        "privacy": "Raw video/audio/frames are never uploaded or stored.",
+        "hosted_storage": storage,
+        "public_session": {
+            "samples": sample_count,
+            "sessions": len(session_ids),
+            "tilt_max": tilt_max,
+            "tilt_latest": tilt_latest,
+            "recovery_latest": recovery_latest,
+            "recovery_delta": max(0, tilt_max - tilt_latest),
+            "avg_readiness": avg_readiness,
+            "proof": {
+                "headline": f"{sample_count} derived samples stored" if sample_count else "Collecting proof",
+                "details": "Evidence is based on derived browser CV signals only. No raw media is stored.",
+            },
+        },
+        "investor_metrics": {
+            "body_state_samples": sample_count,
+            "embedding_vectors": 0,
+            "feedback_labels": label_count,
+            "sessions": len(session_ids),
+            "stored_events": len(events),
+        },
+        "cohort": {
+            "total_alerts_labelled": label_count,
+            "unique_testers": len(tester_ids),
+            "tester_target": 100,
+            "labels_target": 150,
+            "help_rate_percent": help_rate,
+            "false_alert_rate_percent": false_alert_rate,
+        },
+        "cloud_coach": {
+            "provider": "groq" if env_value("GROQ_API_KEY") else "gemini" if env_value("GEMINI_API_KEY") else "local_fallback",
+            "model": env_value("GROQ_MODEL", "llama-3.1-8b-instant") if env_value("GROQ_API_KEY") else env_value("GEMINI_MODEL", "gemini-2.5-flash"),
+            "status": "ready" if env_value("GROQ_API_KEY") or env_value("GEMINI_API_KEY") else "fallback",
+            "latency_ms": 1 if env_value("GROQ_API_KEY") or env_value("GEMINI_API_KEY") else None,
+        },
+        "public_timeline": {"points": timeline_points},
+        "next_milestone": {"tester_target": 100, "labels_target": 150},
+    }
+
+
+def public_evidence() -> dict[str, Any]:
+    events = fetch_supabase_events()
+    if events:
+        return evidence_from_events(events)
+    storage = storage_status()
+    return {
+        "ok": True,
+        "mode": "public_demo",
+        "public_demo_mode": not storage["configured"],
+        "summary": "Public hosted demo is online. Live camera analysis runs locally in the browser.",
+        "privacy": "Raw video is not uploaded or stored.",
+        "hosted_storage": storage,
+        "investor_metrics": {"body_state_samples": 0, "embedding_vectors": 0, "feedback_labels": 0, "stored_events": 0},
+        "cohort": {
+            "total_alerts_labelled": 0,
+            "unique_testers": 0,
+            "tester_target": 100,
+            "labels_target": 150,
+            "help_rate_percent": None,
+            "false_alert_rate_percent": None,
+        },
+        "public_timeline": {"points": []},
+        "cloud_coach": {
+            "provider": "groq" if env_value("GROQ_API_KEY") else "gemini" if env_value("GEMINI_API_KEY") else "fallback",
+            "model": env_value("GROQ_MODEL", "llama-3.1-8b-instant") if env_value("GROQ_API_KEY") else env_value("GEMINI_MODEL", "gemini-2.5-flash") if env_value("GEMINI_API_KEY") else "local templates",
+            "status": "ready" if env_value("GROQ_API_KEY") or env_value("GEMINI_API_KEY") else "fallback",
+            "latency_ms": None,
+        },
+    }
+
+
 def update_session_summary(kind: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         return None
@@ -328,6 +504,54 @@ def file_response(relative_name: str, head: bool = False) -> Response:
         size = path.stat().st_size
         return Response(status_code=200, media_type=media_type, headers={"Content-Length": str(size)})
     return FileResponse(path, media_type=media_type)
+
+
+def visitor_id_from_request(request: Request) -> tuple[str, bool]:
+    existing = str(request.cookies.get(VISITOR_COOKIE) or "").strip()
+    if existing and len(existing) <= 80:
+        return existing, False
+    return f"visitor-{uuid.uuid4().hex[:16]}", True
+
+
+def build_visit_payload(request: Request, route_path: str) -> tuple[dict[str, Any], str, bool]:
+    visitor_id, is_new_cookie = visitor_id_from_request(request)
+    visit_id = f"visit-{int(time.time() * 1000)}-{uuid.uuid4().hex[:8]}"
+    return (
+        {
+            "session_id": visit_id,
+            "tester_id": visit_id,
+            "visitor_id": visitor_id,
+            "path": route_path,
+            "source": "site_visit",
+            "mode": "public_site",
+            "label": "site_visit",
+            "timestamp": utc_now_iso(),
+            "raw_media_stored": False,
+        },
+        visitor_id,
+        is_new_cookie,
+    )
+
+
+def track_page_visit(request: Request, background_tasks: BackgroundTasks, route_path: str) -> tuple[str, bool]:
+    payload, visitor_id, is_new_cookie = build_visit_payload(request, route_path)
+    headers = {k.lower(): v for k, v in request.headers.items()}
+    background_tasks.add_task(mirror_to_supabase, "site_visit", payload, headers)
+    return visitor_id, is_new_cookie
+
+
+def maybe_set_visitor_cookie(response: Response, visitor_id: str, is_new_cookie: bool) -> Response:
+    if not is_new_cookie:
+        return response
+    response.set_cookie(
+        VISITOR_COOKIE,
+        visitor_id,
+        max_age=60 * 60 * 24 * 365,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+    return response
 
 
 def local_command(payload: dict[str, Any]) -> str:
@@ -427,8 +651,9 @@ def coach_response(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.get("/")
-async def index() -> Response:
-    return file_response("index.html")
+async def index(request: Request, background_tasks: BackgroundTasks) -> Response:
+    visitor_id, is_new_cookie = track_page_visit(request, background_tasks, "/")
+    return maybe_set_visitor_cookie(file_response("index.html"), visitor_id, is_new_cookie)
 
 
 @app.head("/")
@@ -448,15 +673,6 @@ async def health() -> JSONResponse:
 @app.head("/api/healthz")
 async def health_head() -> Response:
     return Response(status_code=200)
-
-
-def public_evidence() -> dict[str, Any]:
-    return {
-        "ok": True,
-        "mode": "public_demo",
-        "summary": "Public hosted demo is online. Live camera analysis runs locally in the browser.",
-        "privacy": "Raw video is not uploaded or stored.",
-    }
 
 
 @app.get("/api/state")
@@ -642,10 +858,11 @@ async def api_write(path: str, request: Request) -> JSONResponse:
 
 
 @app.get("/{path:path}")
-async def frontend_or_static(path: str) -> Response:
+async def frontend_or_static(path: str, request: Request, background_tasks: BackgroundTasks) -> Response:
     route_path = "/" + path.rstrip("/")
     if route_path in ROUTES:
-        return file_response(ROUTES[route_path])
+        visitor_id, is_new_cookie = track_page_visit(request, background_tasks, route_path)
+        return maybe_set_visitor_cookie(file_response(ROUTES[route_path]), visitor_id, is_new_cookie)
     candidate = (SITE_ROOT / path).resolve()
     try:
         candidate.relative_to(SITE_ROOT.resolve())
