@@ -223,10 +223,11 @@ def fetch_supabase_count(event_type: str | None = None) -> int:
         headers={
             "apikey": supabase_key,
             "Authorization": f"Bearer {supabase_key}",
+            "Accept": "application/json",
             "Prefer": "count=exact",
             "Range": "0-0",
         },
-        method="HEAD",
+        method="GET",
     )
     try:
         with urllib.request.urlopen(req, timeout=4.0) as response:
